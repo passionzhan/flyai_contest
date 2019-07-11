@@ -1,0 +1,6 @@
+torch
+tensorflow
+Pillow
+keras
+numpy
+flyai
