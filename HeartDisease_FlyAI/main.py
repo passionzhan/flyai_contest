@@ -4,71 +4,47 @@ import torch
 import torch.nn as nn
 from flyai.dataset import Dataset
 from torch.optim import Adam
+import numpy as np
+import xgboost as xgb
+
 
 from model import Model
 from net import Net
 from path import MODEL_PATH
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=10, type=int, help="train epochs")
+parser.add_argument("-e", "--EPOCHS", default=1000, type=int, help="train epochs")
 parser.add_argument("-b", "--BATCH", default=32, type=int, help="batch size")
 args = parser.parse_args()
 
+def eval(preds_prob,y_test):
+    preds = np.zeros(preds_prob.shape)
+    preds[preds_prob >= 0.5] = 1
+    train_accuracy = (preds == y_test).sum() / preds_prob.shape[0]
 
-def eval(model, x_test, y_test):
-    network.eval()
-    batch_eval = model.batch_iter(x_test, y_test)
-    total_acc = 0.0
-    data_len = len(x_test)
-    for x_batch, y_batch in batch_eval:
-        batch_len = len(x_batch)
-        outputs = network(x_batch)
-        _, prediction = torch.max(outputs.data, 1)
-        correct = (prediction == y_batch).sum().item()
-        acc = correct / batch_len
-        total_acc += acc * batch_len
-    return total_acc / data_len
-
-
-network = Net()
-network = network.double()
-optimizer = Adam(network.parameters(), lr=0.001, betas=(0.9, 0.999))  # 定义优化器，选用AdamOptimizer
-loss_fn = nn.CrossEntropyLoss()  # 定义损失函数，使用交叉熵
+    return train_accuracy
 
 # 训练并评估模型
-
 data = Dataset()
-model = Model(data)
+x_train, y_train, x_test, y_test = data.next_batch(68,32)  # 读取数据
+# read in data
+dtrain = xgb.DMatrix(x_train,label = y_train)
+dtest = xgb.DMatrix(x_test,label = y_test)
 
 best_accuracy = 0
-for i in range(args.EPOCHS):
-    network.train()
-    x_train, y_train, x_test, y_test = data.next_batch(args.BATCH)  # 读取数据
+# specify parameters via map
+param = {'max_depth': 5, 'eta':0.3, 'objective':'binary:logistic','verbosity':3 }
+num_round = 10
+# specify validations set to watch performance
+watchlist = [(dtest, 'eval'), (dtrain, 'train')]
+bst = xgb.train(param, dtrain, num_round,watchlist,verbose_eval=True)
+# make prediction
+preds_prob = bst.predict(dtest)
 
-    x_train = torch.from_numpy(x_train)
-    y_train = torch.from_numpy(y_train)
+train_accuracy = eval(preds_prob, dtest.get_label())
 
-    x_test = torch.from_numpy(x_test)
-    y_test = torch.from_numpy(y_test)
-
-    optimizer.zero_grad()
-
-    outputs = network(x_train)
-    # calculate the loss according to labels
-    loss = loss_fn(outputs, y_train)
-    # backward transmit loss
-    loss.backward()
-
-    _, prediction = torch.max(outputs.data, 1)
-    # print(prediction) ##test
-    # adjust parameters using Adam
-    optimizer.step()
-
-    # 若测试准确率高于当前最高准确率，则保存模型
-    train_accuracy = eval(model, x_test, y_test)
-    if train_accuracy > best_accuracy:
-        best_accuracy = train_accuracy
-        model.save_model(network, MODEL_PATH, overwrite=True)
-        print("step %d, best accuracy %g" % (i, best_accuracy))
-
-    print(str(i) + "/" + str(args.EPOCHS))
+if train_accuracy > best_accuracy:
+    best_accuracy = train_accuracy
+    model = Model(bst)
+    model.save_model(bst, MODEL_PATH, overwrite=True)
+    print("step %d, best accuracy %g" % (0, best_accuracy))

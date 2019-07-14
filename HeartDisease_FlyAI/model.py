@@ -12,44 +12,16 @@ Torch_MODEL_NAME = "model.pkl"
 
 
 class Model(Base):
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, xgbClassifier):
+        self.xgbClassifier = xgbClassifier
 
     def predict(self, **data):
-        cnn = torch.load(os.path.join(MODEL_PATH, Torch_MODEL_NAME))
-        x_data = self.data.predict_data(**data)
-        x_data = torch.from_numpy(x_data)
-        outputs = cnn(x_data)
-        prediction = outputs.data.numpy()
-        prediction = self.data.to_categorys(prediction)
+        prediction = self.xgbClassifier(data['dtest'])
         return prediction
 
     def predict_all(self, datas):
-        cnn = torch.load(os.path.join(MODEL_PATH, Torch_MODEL_NAME))
-        labels = []
-        for data in datas:
-            x_data = self.data.predict_data(**data)
-            x_data = torch.from_numpy(x_data)
-            outputs = cnn(x_data)
-            prediction = outputs.data.numpy()
-            prediction = self.data.to_categorys(prediction)
-            labels.append(prediction)
-        return labels
+        return self.predict(datas)
 
-    def batch_iter(self, x, y, batch_size=128):
-        """生成批次数据"""
-        data_len = len(x)
-        num_batch = int((data_len - 1) / batch_size) + 1
-
-        indices = numpy.random.permutation(numpy.arange(data_len))
-        x_shuffle = x[indices]
-        y_shuffle = y[indices]
-
-        for i in range(num_batch):
-            start_id = i * batch_size
-            end_id = min((i + 1) * batch_size, data_len)
-            yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
-
-    def save_model(self, network, path, name=Torch_MODEL_NAME, overwrite=False):
-        super().save_model(network, path, name, overwrite)
-        torch.save(network, os.path.join(path, name))
+    def save_model(self, model, path, name=Torch_MODEL_NAME, overwrite=False):
+        super().save_model(model, path, name, overwrite)
+        model.save_model(os.path.join(path, name))

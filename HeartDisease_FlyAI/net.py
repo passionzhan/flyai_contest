@@ -9,6 +9,7 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(256,256)
         self.relu2 = nn.ReLU(True)
         self.fc3 = nn.Linear(256,2)
+        # self.softmax = nn.Softmax(dim=1)
         
     def forward(self, input):
             output = input.view(-1, 13)
@@ -17,5 +18,6 @@ class Net(nn.Module):
             output = self.fc2(output)
             output = self.relu2(output)
             output = self.fc3(output)
+            # output = self.softmax(output)
             
             return output
