@@ -6,7 +6,7 @@ from flyai.dataset import Dataset
 from torch.optim import Adam
 import numpy as np
 import xgboost as xgb
-
+from sklearn.model_selection import GridSearchCV
 
 from model import Model
 from net import Net
@@ -43,8 +43,11 @@ x, y, x_test, y_test = data.get_all_processor_data()
 # x_test = x[-validateNum:,:]
 # y_test = y[-validateNum:]
 
-x_train = x
-y_train = y
+# x_train = x
+# y_train = y
+
+x_train = np.concatenate(x,x_test)
+y_train = np.concatenate(y,y_test)
 
 print("the length of train data: %d" % data.get_train_length())
 print("the length of x_train: %d" % x_train.shape[0])
@@ -60,7 +63,7 @@ print("the length of x_test: %d" % x_test.shape[0])
 dtrain = xgb.DMatrix(x_train, label=y_train)
 dtest = xgb.DMatrix(x_test, label=y_test)
 
-best_accuracy = 0
+# best_accuracy = 0
 # specify parameters via map
 # gamma/
 etas = [0.001, 0.01, 0.1, 0.3, 0.5, 1]
@@ -69,6 +72,16 @@ reg_lambdas = [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ]
 reg_alphas = [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ]
 num_rounds = [2, 5, 7, 10]
 min_split_losss = [0.001,0.01,0.1,1,7,10,30,] # gamma
+
+param_grid =  {'learning_rate': [0.001, 0.01, 0.1, 0.3, 0.5, 1],
+   'max_depth': [2, 3, 5, 7, 10],
+   'reg_lambda':[0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
+   'reg_alpha': [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
+   'num_round': [2, 5, 7, 10, 20],
+   'gamma': [0, 0.0001, 0.001,0.01,0.1,1,7,10,30,]
+   }
+
+
 # etas = [0.001,0.5,]
 # max_depths = [2]
 # lambdas = [0.001,0.5, ]
@@ -77,6 +90,17 @@ min_split_losss = [0.001,0.01,0.1,1,7,10,30,] # gamma
 
 watchlist = [(dtrain, 'train'),(dtest, 'eval')]
 
+
+bst = xgb.XGBClassifier(n_estimators=100, verbosity=0,
+                        objective='binary:logistic',n_jobs = 5,subsample=0.7,)
+
+clf = GridSearchCV(bst,param_grid, verbose=0, n_jobs = 5,cv = 6, )
+
+clf.fit(x_train,y_train)
+print(clf.best_score_)
+print(clf.best_params_)
+
+pickle.dump(clf, open("best_boston.pkl", "wb"))
 for eta in etas:
     for max_depth in max_depths:
         for reg_lambda in reg_lambdas:
