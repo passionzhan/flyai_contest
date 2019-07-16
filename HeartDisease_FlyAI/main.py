@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*
+import pickle
 import argparse
-import torch
-import torch.nn as nn
+
 from flyai.dataset import Dataset
-from torch.optim import Adam
 import numpy as np
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import make_scorer
 
-from model import Model
-from net import Net
+from model import Model, eval
 from path import MODEL_PATH
 
 parser = argparse.ArgumentParser()
@@ -23,12 +22,7 @@ parser.add_argument("-b", "--BATCH", default=32, type=int, help="batch size")
 args = parser.parse_args()
 
 
-def eval(preds_prob, y_test):
-    preds = np.zeros(preds_prob.shape)
-    preds[preds_prob >= 0.5] = 1
-    train_accuracy = (preds == y_test).sum() / preds_prob.shape[0]
 
-    return train_accuracy
 
 
 # 训练并评估模型
@@ -46,8 +40,13 @@ x, y, x_test, y_test = data.get_all_processor_data()
 # x_train = x
 # y_train = y
 
-x_train = np.concatenate(x,x_test)
-y_train = np.concatenate(y,y_test)
+x_train = np.concatenate((x, x_test))
+y_train = np.concatenate((y, y_test))
+
+# region 本地测试用
+# x_train = x
+# y_train = y
+# endregion
 
 print("the length of train data: %d" % data.get_train_length())
 print("the length of x_train: %d" % x_train.shape[0])
@@ -71,70 +70,51 @@ max_depths = [2, 3, 5, 7, 10]
 reg_lambdas = [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ]
 reg_alphas = [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ]
 num_rounds = [2, 5, 7, 10]
-min_split_losss = [0.001,0.01,0.1,1,7,10,30,] # gamma
+min_split_losss = [0.001, 0.01, 0.1, 1, 7, 10, 30, ]  # gamma
 
-param_grid =  {'learning_rate': [0.001, 0.01, 0.1, 0.3, 0.5, 1],
-   'max_depth': [2, 3, 5, 7, 10],
-   'reg_lambda':[0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
-   'reg_alpha': [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
-   'num_round': [2, 5, 7, 10, 20],
-   'gamma': [0, 0.0001, 0.001,0.01,0.1,1,7,10,30,]
-   }
+param_grid = {'learning_rate': [0.001, 0.01, 0.1, 0.3, 0.5, 1],
+              'max_depth': [2, 3, 5, 7, 10],
+              'reg_lambda': [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
+              'reg_alpha': [0.001, 0.01, 0.1, 0.3, 0.5, 1, 7, 10, ],
+              'num_round': [2, 5, 7, 10, 20],
+              'gamma': [0, 0.0001, 0.001, 0.01, 0.1, 1, 7, 10, 30, ]
+              }
 
+
+# region 本地测试参数 ；
+# param_grid = {'learning_rate': [0.1, 0.3],
+#               'max_depth': [5,],
+#               'reg_lambda': [ 0.3, 0.5,],
+#               'reg_alpha': [0.3, ],
+#               'num_round': [2,],
+#               'gamma': [0.1, ]
+#               }
+# endregion
 
 # etas = [0.001,0.5,]
-# max_depths = [2]
-# lambdas = [0.001,0.5, ]
-# alphas = [0.001]
-# num_rounds = [2, 7]
+# # max_depths = [2]
+# # lambdas = [0.001,0.5, ]
+# # alphas = [0.001]
+# # num_rounds = [2, 7]
 
-watchlist = [(dtrain, 'train'),(dtest, 'eval')]
+# watchlist = [(dtrain, 'train'), (dtest, 'eval')]
 
+myscore = make_scorer(eval, greater_is_better=True)
 
 bst = xgb.XGBClassifier(n_estimators=100, verbosity=0,
-                        objective='binary:logistic',n_jobs = 5,subsample=0.7,)
+                        objective='binary:logistic', n_jobs=5, subsample=0.7,)
 
-clf = GridSearchCV(bst,param_grid, verbose=0, n_jobs = 5,cv = 6, )
+clf = GridSearchCV(
+    bst,
+    param_grid,
+    scoring=myscore,
+    verbose=0,
+    n_jobs=5,
+    cv=6,
+)
 
-clf.fit(x_train,y_train)
+clf.fit(x_train, y_train)
 print(clf.best_score_)
 print(clf.best_params_)
 
-pickle.dump(clf, open("best_boston.pkl", "wb"))
-for eta in etas:
-    for max_depth in max_depths:
-        for reg_lambda in reg_lambdas:
-            for reg_alpha in reg_alphas:
-                for num_round in num_rounds:
-                    for min_split_loss in min_split_losss:
-                        param = {
-                            'max_depth': max_depth,
-                            'eta': eta,
-                            'lambda': reg_lambda,
-                            'alpha': reg_alpha,
-                            'min_split_loss':min_split_loss,
-                            'objective': 'binary:logistic',
-                            'subsample':0.7,
-                            'verbosity': 0}
-
-                        # specify validations set to watch performance
-                        bst = xgb.train(
-                            param,
-                            dtrain,
-                            num_round,
-                            watchlist,
-                            verbose_eval=False)
-                        preds_prob = bst.predict(dtest)
-                        val_accuracy = eval(preds_prob, dtest.get_label())
-                        # print("current val_accuracy %s" % val_accuracy)
-
-                        if val_accuracy > best_accuracy:
-                            best_accuracy = val_accuracy
-                            model.save_model(bst, MODEL_PATH, overwrite=True)
-                            print(
-                                "parameters: eta: %g, max_depth: %g, lambda_2: %g, alpha: %g, num_round: %g, min_split_loss: %g." %
-                                (eta, max_depth, reg_lambda, reg_alpha, num_round, min_split_loss))
-                            print("best accuracy %s" % best_accuracy)
-                            print("current train accuracy %s" % eval(bst.predict(dtrain), dtrain.get_label()))
-
-
+model.save_model(clf, MODEL_PATH, overwrite=True)
