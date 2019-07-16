@@ -46,7 +46,7 @@ x, y, x_test, y_test = data.get_all_processor_data()
 x_train = x
 y_train = y
 
-
+print("the length of train data: %d" % data.get_train_length())
 # x_train, y_train = data.get_all_validation_data()
 # print(args.BATCH)
 # print(args.EPOCHS)
