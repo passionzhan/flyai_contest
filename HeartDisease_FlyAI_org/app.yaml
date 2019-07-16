@@ -1,0 +1,67 @@
+---
+name: HeartDisease classification
+author: jiayi
+description: Heart Disease classification
+topic: HeartDisease classification
+algorithm: BP
+language: python3
+virtualenv: flyai_env/bin/
+
+framework: PyTorch
+
+data:
+  id: HeartDisease
+  name: HeartDisease classification
+  category: mixed
+
+
+model:
+  processor: Processor
+  input_x: input_x
+  input_y: input_y
+  output_y: output_y
+  input:
+    columns:
+      - name: age
+        type: int
+      - name: sex
+        type: int
+      - name: cp
+        type: int
+      - name: trestbps
+        type: float
+      - name: chol
+        type: float
+      - name: fbs
+        type: int
+      - name: restecg
+        type: int
+      - name: thalach
+        type: float
+      - name: exang
+        type: int
+      - name: oldpeak
+        type: float           
+      - name: slope
+        type: int
+      - name: ca
+        type: int
+      - name: thal
+        type: int   
+    to_type: float
+    to_shape: [-1, 13]
+  output:
+    columns:
+      - name: label
+        type: int
+    to_type: float
+    to_shape: [-1,2]
+
+
+evaluate:
+  score: torch_accuracy
+
+servers:
+ - id: flyai
+   url: https://flyai.com
+...

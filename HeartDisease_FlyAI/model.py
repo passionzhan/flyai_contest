@@ -44,14 +44,23 @@ class Model(Base):
         x_data = self.data.predict_data(**data)
         x_data = xgb.DMatrix(x_data)
         outputs = self.xgbcls.predict(x_data)
-        prediction = self.data.to_categorys(outputs)
+        if outputs >= 0.5:
+            prediction = 1 + 1
+        else:
+            prediction = 1
+
+        # prediction = self.data.to_categorys(outputs)
         return prediction
 
     def predict_all(self, datas):
         labels = []
+        # print(len(datas))
+        i = 0
         for data in datas:
             prediction = self.predict(**data)
             labels.append(prediction)
+            i += 1
+        print("the length of test datas: %d" % i)
         return labels
 
     def batch_iter(self, x, y, batch_size=128):
