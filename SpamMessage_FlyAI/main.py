@@ -37,6 +37,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
+print("train data length:%d" % dataset.get_train_length())
 model = Model(dataset)
 
 word_dict, word_dict_res = load_dict()

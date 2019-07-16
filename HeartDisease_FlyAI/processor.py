@@ -15,7 +15,7 @@ class Processor(Base):
     def input_x(self, age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal):
         x_data = numpy.zeros(13)  ## 输入维度为13
         x_data[:] = age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal
-        x_data = Normalize(x_data)
+        # x_data = Normalize(x_data)
 
         return x_data
 

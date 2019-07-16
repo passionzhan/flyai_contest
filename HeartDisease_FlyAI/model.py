@@ -30,10 +30,17 @@ class Model(Base):
 
     def __init__(self, data):
         self.data = data
-        self.xgbcls = xgb.Booster()
-        self.xgbcls.load_model(os.path.join(MODEL_PATH, Torch_MODEL_NAME))
+        if os.path.isfile(os.path.join(MODEL_PATH, Torch_MODEL_NAME)):
+            self.xgbcls = xgb.Booster()
+            self.xgbcls.load_model(os.path.join(MODEL_PATH, Torch_MODEL_NAME))
+        else:
+            self.xgbcls = None
 
     def predict(self, **data):
+        if not self.xgbcls:
+            self.xgbcls = xgb.Booster()
+            self.xgbcls.load_model(os.path.join(MODEL_PATH, Torch_MODEL_NAME))
+
         x_data = self.data.predict_data(**data)
         x_data = xgb.DMatrix(x_data)
         outputs = self.xgbcls.predict(x_data)

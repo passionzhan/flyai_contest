@@ -32,10 +32,24 @@ def eval(preds_prob, y_test):
 
 
 # 训练并评估模型
-data = Dataset()
+data = Dataset(epochs=args.EPOCHS, batch=args.BATCH,)
 model = Model(data)
 
-x_train, y_train, x_test, y_test = data.get_all_processor_data()
+x, y, x_test, y_test = data.get_all_processor_data()
+#
+# validateNum = 30
+# x_train = x[0:x.shape[0]-validateNum,:]
+# y_train = y[0:y.shape[0]-validateNum]
+# x_test = x[-validateNum:,:]
+# y_test = y[-validateNum:]
+
+x_train = x
+y_train = y
+
+
+# x_train, y_train = data.get_all_validation_data()
+# print(args.BATCH)
+# print(args.EPOCHS)
 # read in data
 dtrain = xgb.DMatrix(x_train, label=y_train)
 dtest = xgb.DMatrix(x_test, label=y_test)
@@ -54,7 +68,7 @@ num_rounds = [2, 5, 7, 10]
 # alphas = [0.001]
 # num_rounds = [2, 7]
 
-watchlist = [(dtest, 'eval'), (dtrain, 'train')]
+watchlist = [(dtrain, 'train'),(dtest, 'eval')]
 
 for eta in etas:
     for max_depth in max_depths:
@@ -67,7 +81,7 @@ for eta in etas:
                         'lambda': lambda_2,
                         'alpha': alpha,
                         'objective': 'binary:logistic',
-                        'verbosity': 3}
+                        'verbosity': 0}
 
                     # specify validations set to watch performance
                     bst = xgb.train(
@@ -75,14 +89,16 @@ for eta in etas:
                         dtrain,
                         num_round,
                         watchlist,
-                        verbose_eval=True)
+                        verbose_eval=False)
                     preds_prob = bst.predict(dtest)
-                    train_accuracy = eval(preds_prob, dtest.get_label())
+                    val_accuracy = eval(preds_prob, dtest.get_label())
+                    print("current train accuracy %s" % eval(bst.predict(dtrain), dtrain.get_label()))
 
-                    if train_accuracy > best_accuracy:
-                        best_accuracy = train_accuracy
+                    if val_accuracy > best_accuracy:
+                        best_accuracy = val_accuracy
                         model.save_model(bst, MODEL_PATH, overwrite=True)
                         print(
                             "parameters: eta: %g, max_depth: %g, lambda_2: %g, alpha: %g, num_round: %g." %
                             (eta, max_depth, lambda_2, alpha, num_round))
                         print("best accuracy %s" % best_accuracy)
+
