@@ -1,0 +1,3 @@
+79.63: {eta: 1, max_depth: 3, lambda_2: 0.1, alpha: 0.3, num_round: 7, min_split_loss: 0.001.}
+
+81.48: {'reg_lambda': 1, 'reg_alpha': 0.5, 'max_depth': 2, 'learning_rate': 0.5, 'gamma': 7, 'num_round': 2}

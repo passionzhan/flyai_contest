@@ -37,7 +37,6 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
-print("train data length:%d" % dataset.get_train_length())
 model = Model(dataset)
 
 word_dict, word_dict_res = load_dict()
@@ -101,10 +100,13 @@ with tf.name_scope("summary"):
     tf.summary.scalar("accuracy", accuracy)
     merged_summary = tf.summary.merge_all()
 
+
 best_score = 0
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+    tf.summary.FileWriter('.')
+    train_writer.add_graph(tf.get_default_graph())
 
     # dataset.get_step() 获取数据的总迭代次数
     for step in range(dataset.get_step()):
@@ -117,8 +119,7 @@ with tf.Session() as sess:
 
         valid_acc = sess.run(accuracy, feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
         summary = sess.run(merged_summary, feed_dict=feed_dict)
-        train_writer.add_summary(summary, step)
-
+        # train_writer.add_summary(summary, step)
         cur_step = str(step + 1) + "/" + str(dataset.get_step())
         print('The Current step per total: {} | The Current loss: {} | The Current ACC: {} |'
               ' The Current Valid ACC: {}'.format(cur_step, loss_, accuracy_, valid_acc))

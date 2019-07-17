@@ -102,7 +102,7 @@ param_grid = {'learning_rate': [0.001, 0.01, 0.1, 0.3, 0.5, 1],
 myscore = make_scorer(eval, greater_is_better=True)
 
 bst = xgb.XGBClassifier(n_estimators=100, verbosity=0,
-                        objective='binary:logistic', n_jobs=5, subsample=0.7,)
+                        objective='binary:logistic', n_jobs= 5, subsample=0.7,)
 
 clf = GridSearchCV(
     bst,
