@@ -4,6 +4,7 @@ Created on Mon Oct 30 19:44:02 2017
 
 @author: user
 """
+import sys
 
 import argparse
 import tensorflow as tf
@@ -14,7 +15,6 @@ from path import MODEL_PATH, LOG_PATH
 
 print('-------------------------------------')
 print(tf.__version__)
-
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
 PyTorch模版项目下载： https://www.flyai.com/python/pytorch_template.zip
@@ -23,6 +23,8 @@ Keras模版项目下载： https://www.flyai.com/python/keras_template.zip
 常见问题请访问：https://www.flyai.com/question
 意见和问题反馈有红包哦！添加客服微信：flyaixzs
 '''
+
+
 
 '''
 项目中的超参
