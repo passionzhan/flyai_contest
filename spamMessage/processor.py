@@ -16,6 +16,9 @@ class Processor(Base):
         super(Processor, self).__init__()
         self.word_dict, self.word_dict_re = load_dict()
 
+    def getWordsCount(self):
+        return len(self.word_dict)
+
     def input_x(self, text):
         '''
         参数为csv中作为输入x的一条数据，该方法会被dataset.next_train_batch()
@@ -23,6 +26,7 @@ class Processor(Base):
         该方法字段与app.yaml中的input:->columns:对应
         '''
         sent_ids = sentence2ids(text, self.word_dict)
+
         return sent_ids
 
     def input_y(self, label):

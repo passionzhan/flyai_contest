@@ -15,7 +15,7 @@ from path import DATA_PATH
 
 FILENAME_ORG = '带标签短信.txt'
 DICTFILE = 'words.dict'
-FILENAME = 'message.csv'
+FILENAME = 'dev.csv'
 
 def data_process(text_str):
     text_str = text_str.strip().replace('\s+', ' ', 3)
@@ -24,13 +24,14 @@ def data_process(text_str):
 
 def load_dict():
     word_dict_re = dict()
-    with open(DICTFILE, encoding='utf-8') as fin:
+    dictFile = os.path.join(DATA_PATH,DICTFILE)
+    with open(dictFile, encoding='utf-8') as fin:
         word_dict = json.load(fin)
     for k, v in word_dict.items():
         word_dict_re[v] = k
     return word_dict, word_dict_re
 
-def sentence2ids(sentence,dict):
+def sentence2ids(sentence,dict,max_seq_len=128):
     '''
     :param sentence:
     :param dict:
@@ -42,6 +43,11 @@ def sentence2ids(sentence,dict):
             ids.append(dict[word])
         else:
             ids.append(dict['_UNK_'])
+
+    if len(ids) < max_seq_len:
+        ids = ids + [dict['_PAD_'] for _ in range(max_seq_len - len(ids))]
+    else:
+        ids = ids[:max_seq_len]
     return ids
 
 def generateDictFile(minNum=0):
