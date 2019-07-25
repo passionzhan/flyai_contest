@@ -7,7 +7,7 @@
 import argparse
 
 import tensorflow as tf
-from flyai.dataset import Dataset
+from dataset import Dataset
 
 from processor import Processor
 from model import *
@@ -27,14 +27,14 @@ args = parser.parse_args()
 flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
+dataset = Dataset(train_batch=args.BATCH, val_batch=128, )
 
 vocab_size = Processor().getWordsCount()
 
 # region 准备数据
-allDataLength = dataset.get_train_length()
-print('length of all dev data: %d' % allDataLength)
-x, y, x_ , y_  = dataset.get_all_processor_data()
+# allDataLength = dataset.get_train_length()
+# print('length of all dev data: %d' % allDataLength)
+# x, y, x_ , y_  = dataset.get_all_processor_data()
 
 # trainLen = (int)(95*allDataLength/100)
 # x_train = x[0:trainLen]
@@ -42,13 +42,17 @@ x, y, x_ , y_  = dataset.get_all_processor_data()
 # x_val = x[trainLen:]
 # y_val = y[trainLen:]
 
-x_train = x
-y_train = y
-x_val = x_
-y_val = y_
+# x_train = x
+# y_train = y
+# x_val = x_
+# y_val = y_
 # endregion
 
+
 myModel = Model(dataset)
+
+
+
 
 save_callback = tf.keras.callbacks.ModelCheckpoint(myModel.model_path,
                                                    save_weights_only=True,
