@@ -8,6 +8,7 @@
 import os
 import gevent
 from gevent import pool, monkey
+import math
 
 from pandas.io.parsers import read_csv
 from flyai.utils.yaml_helper import Yaml
@@ -28,6 +29,7 @@ class Dataset(object):
         self.__train_page = 0
         self.__val_page = 0
         self.train_num = (int)(self.data_len * split_ratio)
+        self.step = math.ceil(self.train_num / train_batch)
         self.val_num = self.data_len - self.train_num
         self.__train_BATCH = train_batch
         self.__val_BATCH = val_batch
@@ -37,7 +39,7 @@ class Dataset(object):
         self.processor = self.create_instance("processor", clz)
 
     def next_train_batch(self):
-        maxIdx = min(self.data_len,(self.__val_page+1)*self.__train_BATCH)
+        maxIdx = min(self.data_len,(self.__train_page+1)*self.__train_BATCH)
         train = self.data[self.__train_page * self.__train_BATCH: maxIdx]
         if maxIdx == self.train_num:
             self.__train_page = 0
@@ -56,7 +58,7 @@ class Dataset(object):
         if maxIdx == self.data_len:
             self.__val_page = 0
         else:
-            self.__train_page += 1
+            self.__val_page += 1
 
         x_val, y_val = self.__get_data(val)
         x_val = self.__processor_x(x_val)
