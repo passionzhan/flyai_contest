@@ -53,7 +53,7 @@ class Dataset(object):
 
         return x_train, y_train
 
-    def next_val_batch(self):
+    def next_validation_batch(self):
         maxIdx = min(self.data_len,(self.__val_page+1)*self.__val_BATCH + self.train_num)
         val = self.data[self.__val_page * self.__val_BATCH + self.train_num: maxIdx]
         if maxIdx == self.data_len:
@@ -85,6 +85,9 @@ class Dataset(object):
 
     def to_categorys(self, predict):
         return self.get_method_list(self.processor, self.__model['output_y'], predict)
+
+    def get_step(self):
+        return self.step
 
     def __get_data(self, data):
         yaml = Yaml()

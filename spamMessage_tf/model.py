@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*
 import os
+import math
 
 import tensorflow as tf
 from flyai.model.base import Base
 
 from path import MODEL_PATH, LOG_PATH
 from processor import Processor
-from dataset import Dataset
+from flyai.dataset import Dataset
+# from dataset import Dataset
 
 TENSORFLOW_MODEL_DIR = "dpNet.ckpt"
 
@@ -124,26 +126,26 @@ class Model(Base):
             # dataset = Dataset(train_batch=128, val_batch=64, split_ratio = 0.9,)
             # epochs = 2
 
-            for i in range(epochs):
-                for j in range(dataset.step):
-                    x_train, y_train = dataset.next_train_batch()
+            # step = math.ceil(self.data.get_train_length() / min(256,))
+            for j in range(self.data.get_step()):
+                x_train, y_train = self.data.next_train_batch()
 
-                    fetches = [loss, accuracy, train_op]
+                fetches = [loss, accuracy, train_op]
 
-                    feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.9}
-                    loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
+                feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.9}
+                loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
 
-                    if j % 10 == 0:
-                        x_val, y_val = dataset.next_val_batch()
-                        summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
-                        train_writer.add_summary(summary_train, i * dataset.step + j)
-                        summary_val = sess.run([loss, accuracy],
-                                               feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
-                        print('当前批次/代数: {}/{} | 当前训练损失: {} | 当前训练准确率： {} | '
-                              '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, i, loss_, accuracy_, summary_val[0],
-                                                                  summary_val[1]))
-                        save_path = saver.save(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
-                        print("Model saved in path: %s" % save_path)
+                if j % 100 == 0:
+                    x_val, y_val = self.data.next_validation_batch()
+                    summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
+                    train_writer.add_summary(summary_train, j)
+                    summary_val = sess.run([loss, accuracy],
+                                           feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
+                    print('当前批次: {} | 当前训练损失: {} | 当前训练准确率： {} | '
+                          '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, loss_, accuracy_, summary_val[0],
+                                                              summary_val[1]))
+                    save_path = saver.save(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+                    print("Model saved in path: %s" % save_path)
 
     def model_predict(self, x_data):
         y_pred_cls = self.outputParams['y_pred_cls']

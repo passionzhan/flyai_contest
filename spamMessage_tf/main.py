@@ -7,7 +7,8 @@
 import argparse
 
 import tensorflow as tf
-from dataset import Dataset
+from flyai.dataset import Dataset
+# from dataset import Dataset
 
 from processor import Processor
 from model import *
@@ -27,7 +28,8 @@ args = parser.parse_args()
 flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
-dataset = Dataset(train_batch=args.BATCH, val_batch=128, )
+# dataset = Dataset(train_batch=args.BATCH, val_batch=128, )
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
 
 vocab_size = Processor().getWordsCount()
 
@@ -50,21 +52,20 @@ vocab_size = Processor().getWordsCount()
 
 
 myModel = Model(dataset)
+myModel.train_model(needInit=True, epochs = args.EPOCHS)
 
 
-
-
-save_callback = tf.keras.callbacks.ModelCheckpoint(myModel.model_path,
-                                                   save_weights_only=True,
-                                                   verbose=1,
-                                                   period=5)
-history = myModel.dpNet.fit(x_train,
-                            y_train,
-                            epochs=args.EPOCHS,
-                            batch_size=args.BATCH,
-                            callbacks=[save_callback,],
-                            validation_data=(x_val, y_val),
-                            verbose=1)
+# save_callback = tf.keras.callbacks.ModelCheckpoint(myModel.model_path,
+#                                                    save_weights_only=True,
+#                                                    verbose=1,
+#                                                    period=5)
+# history = myModel.dpNet.fit(x_train,
+#                             y_train,
+#                             epochs=args.EPOCHS,
+#                             batch_size=args.BATCH,
+#                             callbacks=[save_callback,],
+#                             validation_data=(x_val, y_val),
+#                             verbose=1)
 
 # results = myModel.dpNet.evaluate(x_val, y_val)
 #

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*
-# from flyai.dataset import Dataset
+from flyai.dataset import Dataset
 from model import Model
-from dataset import  Dataset
+# from dataset import  Dataset
 
 from processor import Processor
 
-dataset = Dataset(train_batch=128, val_batch=64, split_ratio=0.9, )
+# dataset = Dataset(train_batch=128, val_batch=64, split_ratio=0.9, )
+dataset = Dataset(batch=32, val_batch=32)
 model = Model(dataset)
 #
 # predict = model.predict(text="您好！我们这边是施华洛世奇鄞州万达店！您是我们尊贵的会员，特意邀请您参加我们x.x-x.x的三八女人节活动！满xxxx元享晶璨花漾丝巾")
