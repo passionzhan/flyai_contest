@@ -3,8 +3,6 @@ import os
 
 import tensorflow as tf
 from flyai.model.base import Base
-from tensorflow import keras
-from tensorflow.python.saved_model import tag_constants
 
 from path import MODEL_PATH, LOG_PATH
 from processor import Processor
@@ -13,7 +11,6 @@ from dataset import Dataset
 TENSORFLOW_MODEL_DIR = "dpNet.ckpt"
 
 def create_model(vocab_size, ):
-
     # region 模型超参数
     e_dim = 200
     filters_num = 256
@@ -81,45 +78,83 @@ def create_model(vocab_size, ):
         merged_summary = tf.summary.merge_all()
 
 
-    with tf.Session() as sess:
-        init = tf.global_variables_initializer()
-        sess.run(init)
+    inputParams = {'input_x':input_x,
+                    'input_y':input_y,
+                    'keep_prob':keep_prob,
+                   }
 
-        train_writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+    outputParams ={'loss':loss,
+                   'y_pred_cls':y_pred_cls,
+                   'accuracy':accuracy,
+                   'train_op':train_op,
+    }
 
-        dataset = Dataset(train_batch=128, val_batch=64, split_ratio = 0.9,)
-        epochs = 1
+    summaryParams = {
+        'merged_summary':merged_summary
+    }
 
-        saver = tf.train.Saver()
-        for i in range(epochs):
-            for j in range(dataset.step):
-                x_train, y_train = dataset.next_train_batch()
-
-                fetches = [loss, accuracy, train_op]
-
-                feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.9}
-                loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
-
-                if j % 10 == 0:
-                    x_val, y_val = dataset.next_val_batch()
-                    summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
-                    train_writer.add_summary(summary_train,i*dataset.step + j)
-                    summary_val = sess.run([loss, accuracy], feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
-                    print('当前批次/代数: {}/{} | 当前训练损失: {} | 当前训练准确率： {} | '
-                          '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, i, loss_, accuracy_, summary_val[0],summary_val[1]))
-                    save_path = saver.save(sess, "/tmp/model.ckpt")
-                    print("Model saved in path: %s" % save_path)
-
-
+    return inputParams,outputParams,summaryParams
 
 class Model(Base):
     def __init__(self, data,):
         self.data = data
         self.model_path = os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR)
         self.vocab_size = Processor().getWordsCount()
-        self.dpNet = create_model(self.vocab_size)
-        if os.path.isfile(self.model_path):
-            self.dpNet.load_weights(self.model_path)
+        self.inputParams, self.outputParams, self.summaryParams = create_model(self.vocab_size)
+
+    def train_model(self, needInit=True, epochs=2, ):
+        input_x = self.inputParams['input_x']
+        input_y = self.inputParams['input_y']
+        keep_prob = self.inputParams['keep_prob']
+
+        loss = self.outputParams['loss']
+        accuracy = self.outputParams['accuracy']
+        train_op = self.outputParams['train_op']
+
+        merged_summary = self.summaryParams['merged_summary']
+        with tf.Session() as sess:
+            saver = tf.train.Saver()
+            if needInit:
+                init = tf.global_variables_initializer()
+                sess.run(init)
+            else:
+                saver.restore(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+            train_writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+
+            # dataset = Dataset(train_batch=128, val_batch=64, split_ratio = 0.9,)
+            # epochs = 2
+
+            for i in range(epochs):
+                for j in range(dataset.step):
+                    x_train, y_train = dataset.next_train_batch()
+
+                    fetches = [loss, accuracy, train_op]
+
+                    feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.9}
+                    loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
+
+                    if j % 10 == 0:
+                        x_val, y_val = dataset.next_val_batch()
+                        summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
+                        train_writer.add_summary(summary_train, i * dataset.step + j)
+                        summary_val = sess.run([loss, accuracy],
+                                               feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
+                        print('当前批次/代数: {}/{} | 当前训练损失: {} | 当前训练准确率： {} | '
+                              '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, i, loss_, accuracy_, summary_val[0],
+                                                                  summary_val[1]))
+                        save_path = saver.save(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+                        print("Model saved in path: %s" % save_path)
+
+    def model_predict(self, x_data):
+        y_pred_cls = self.outputParams['y_pred_cls']
+        input_x = self.inputParams['input_x']
+        keep_prob = self.inputParams['keep_prob']
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            saver.restore(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+            predict = sess.run(y_pred_cls, feed_dict={input_x: x_data, keep_prob: 1.0})
+
+        return predict
 
     def predict(self, **data):
         '''
@@ -131,22 +166,32 @@ class Model(Base):
         '''
         # latest = tf.train.latest_checkpoint(self.model_path)
         x_data = self.data.predict_data(**data)
-        predict = self.dpNet.predict_classes(x_data)
+        predict = self.model_predict(x_data)
         predict = self.data.to_categorys(predict)
         return predict
 
     def predict_all(self, datas):
-        # latest = tf.train.latest_checkpoint(self.model_path)
         predicts = []
-        for data in datas:
-            x_data = self.data.predict_data(**data)
-            predict = self.dpNet.predict_classes(x_data)
-            predict = self.data.to_categorys(predict)
-            predicts.append(predict)
+        y_pred_cls = self.outputParams['y_pred_cls']
+        input_x = self.inputParams['input_x']
+        keep_prob = self.inputParams['keep_prob']
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            saver.restore(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+            for data in datas:
+                x_data = self.data.predict_data(**data)
+                predict = sess.run(y_pred_cls, feed_dict={input_x: x_data, keep_prob: 1.0})
+                predict = self.data.to_categorys(predict)
+                predicts.append(predict)
 
         return predicts
 
-
 if __name__ == '__main__':
-    create_model(Processor().getWordsCount())
+
+    # inputParams, outputParams, summaryParams = create_model(Processor().getWordsCount())
+    # train_model(inputParams, outputParams, summaryParams,needInit=False)
+    dataset = Dataset(train_batch=128, val_batch=64, split_ratio = 0.9,)
+    model = Model(dataset)
+
+    predic = model.predict(text="您好！我们这边是施华洛世奇鄞州万达店！您是我们尊贵的会员，特意邀请您参加我们x.x-x.x的三八女人节活动！满xxxx元享晶璨花漾丝巾")
     print('xxx')

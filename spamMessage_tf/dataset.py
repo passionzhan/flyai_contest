@@ -33,6 +33,7 @@ class Dataset(object):
         self.val_num = self.data_len - self.train_num
         self.__train_BATCH = train_batch
         self.__val_BATCH = val_batch
+        self.transformation = transformation
 
         self.__model = Yaml().processor()
         clz = self.__model['processor']
@@ -169,6 +170,30 @@ class Dataset(object):
         module_meta = __import__(module_name, globals(), locals(), [class_name])
         class_meta = getattr(module_meta, class_name)
         return class_meta(*args, **kwargs)
+
+    def predict_data(self, **data):
+        processors = []
+        processor = self.get_method_dict(self.processor, self.__model['output_x'], **data)
+        processor_len = 0
+        if not isinstance(processor, tuple):
+            processors.append(numpy.array(processor))
+            processor_len = 1
+        else:
+            processors = [[] for i in range(len(processor))]
+            index = 0
+            for item in processor:
+                processors[index].append(numpy.array(item))
+                index += 1
+        if processor_len == 1:
+            x = numpy.concatenate([processors], axis=0)
+        else:
+            list = []
+            for column in processors:
+                list.append(numpy.concatenate([column], axis=0))
+            x = list
+        if self.transformation is not None:
+            x, _, _, _ = self.transformation.transformation_data(x)
+        return x
 
 if __name__ == '__main__':
     dataset = Dataset(64,128)
