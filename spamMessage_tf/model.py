@@ -132,10 +132,10 @@ class Model(Base):
 
                 fetches = [loss, accuracy, train_op]
 
-                feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.9}
+                feed_dict = {input_x: x_train, input_y: y_train, keep_prob: 0.8}
                 loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
 
-                if j % 100 == 0:
+                if j % 100 == 0 or j == self.data.get_step()-1:
                     x_val, y_val = self.data.next_validation_batch()
                     summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
                     train_writer.add_summary(summary_train, j)
