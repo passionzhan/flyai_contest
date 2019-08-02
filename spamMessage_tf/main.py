@@ -52,8 +52,8 @@ vocab_size = Processor().getWordsCount()
 
 
 # region 训练预测模型
-# myModel = Model(dataset)
-# myModel.train_model(needInit=True, epochs = args.EPOCHS)
+myModel = Model(dataset)
+myModel.train_model(needInit=True, epochs = args.EPOCHS)
 # endregion
 
 
@@ -99,27 +99,30 @@ vocab_size = Processor().getWordsCount()
 # endregion
 
 
-with tf.Session() as sess:
-    saver = tf.train.import_meta_graph(os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR) + "-6.meta")
-    saver.restore(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR) + '-6')
+# region 加载模型，预测
+# with tf.Session() as sess:
+#     saver = tf.train.import_meta_graph(os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR) + "-6.meta")
+#     saver.restore(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR) + '-6')
+#
+#     x_train, y_train = dataset.get_all_validation_data()
+#
+#     graph = tf.get_default_graph()
+#     graph = sess.graph
+#
+#     # loss = graph.get_tensor_by_name("loss:0")
+#     accuracy = graph.get_tensor_by_name("accuracy/accuracy:0")
+#     # train_op = graph.get_tensor_by_name("train_op:0")
+#     keep_prob = graph.get_tensor_by_name("keep_prob:0")
+#     y_pred_cls = graph.get_tensor_by_name('fc2/y_pred:0')  # 预测类别
+#     # y_pred_cls = graph.get_operation_by_name('fc2/y_pred')  # 预测类别
+#     input_x = graph.get_tensor_by_name('input_x:0')  # 预测类别
+#
+#
+#     feed = {input_x:x_train,keep_prob:1}
+#     predicts = sess.run(y_pred_cls,feed_dict=feed)
+#     print(predicts)
+# endregion
 
-    x_train, y_train = dataset.next_validation_batch()
-
-    graph = tf.get_default_graph()
-    graph = sess.graph
-
-    # loss = graph.get_tensor_by_name("loss:0")
-    accuracy = graph.get_tensor_by_name("accuracy/accuracy:0")
-    # train_op = graph.get_tensor_by_name("train_op:0")
-    keep_prob = graph.get_tensor_by_name("keep_prob:0")
-    y_pred_cls = graph.get_tensor_by_name('fc2/y_pred:0')  # 预测类别
-    # y_pred_cls = graph.get_operation_by_name('fc2/y_pred')  # 预测类别
-    input_x = graph.get_tensor_by_name('input_x:0')  # 预测类别
-
-
-    feed = {input_x:x_train,keep_prob:1}
-    predicts = sess.run(y_pred_cls,feed_dict=feed)
-    print(predicts)
 # save_callback = tf.keras.callbacks.ModelCheckpoint(myModel.model_path,
 #                                                    save_weights_only=True,
 #                                                    verbose=1,

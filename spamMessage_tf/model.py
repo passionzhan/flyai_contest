@@ -127,6 +127,8 @@ class Model(Base):
             # epochs = 2
 
             # step = math.ceil(self.data.get_train_length() / min(256,))
+            max_acc = 0
+            min_loss = 0
             for j in range(self.data.get_step()):
                 x_train, y_train = self.data.next_train_batch()
 
@@ -136,16 +138,28 @@ class Model(Base):
                 loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
 
                 if j % 100 == 0 or j == self.data.get_step()-1:
-                    x_val, y_val = self.data.next_validation_batch()
                     summary_train = sess.run(merged_summary, feed_dict=feed_dict, )
                     train_writer.add_summary(summary_train, j)
-                    summary_val = sess.run([loss, accuracy],
-                                           feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
+
+                    nSmp_val = 0
+                    nCount = 0
+                    ave_loss = 0
+                    for i in range(15):
+                        x_val, y_val = self.data.next_validation_batch()
+                        summary_val = sess.run([loss, accuracy],
+                                               feed_dict={input_x: x_val, input_y: y_val, keep_prob: 1.0})
+                        nSmp_val += x_val.shape[0]
+                        nCount += summary_val[1] * x_val.shape[0]
+                        ave_loss += summary_val[0]
+                    val_accuracy = nCount / nSmp_val
+                    ave_loss = ave_loss / 15
                     print('当前批次: {} | 当前训练损失: {} | 当前训练准确率： {} | '
-                          '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, loss_, accuracy_, summary_val[0],
-                                                              summary_val[1]))
-                    save_path = saver.save(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
-                    print("Model saved in path: %s" % save_path)
+                              '当前验证集损失： {} | 当前验证集准确率： {}'.format(j, loss_, accuracy_, ave_loss,
+                                                                  val_accuracy))
+                    if val_accuracy > max_acc or (val_accuracy == max_acc and ave_loss < min_loss):
+                        max_acc, min_loss = val_accuracy, ave_loss
+                        save_path = saver.save(sess, os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
+                        print("Model saved in path: %s" % save_path)
 
     def model_predict(self, x_data):
         y_pred_cls = self.outputParams['y_pred_cls']
