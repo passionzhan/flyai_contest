@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*
 import os
 import math
+import zipfile
 
 import tensorflow as tf
 from flyai.model.base import Base
@@ -128,10 +129,18 @@ class Model(Base):
                                                  default_graph.get_tensor_by_name("embedding/encoder_embedding:0")})
                 # 必须使用该方法下载模型，然后加载
                 path = remote_helper.get_remote_date("https://www.flyai.com/m/chinese_L-12_H-768_A-12.zip")
-                init_saver.restore(sess, path)
+                #
+                #
+                # zf = zipfile.ZipFile(path)
+                # try:
+                #     zf.extractall(path=os.path.join(MODEL_PATH,'bert'))
+                # except RuntimeError as e:
+                #     print(e)
+                # zf.close()
+                init_saver.restore(sess, os.path.join(os.path.join(os.path.dirname(path),'chinese_L-12_H-768_A-12','bert_model.ckpt')))
+
                 # 本地测试用
                 # init_saver.restore(sess, os.path.join(os.getcwd(),'chinese_L-12_H-768_A-12','bert_model.ckpt'))
-
 
                 global_vars = tf.global_variables()
                 is_not_initialized = sess.run([tf.is_variable_initialized(var) for var in global_vars])

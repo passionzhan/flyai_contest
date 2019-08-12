@@ -28,7 +28,7 @@ args = parser.parse_args()
 flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=512)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=64)
 
 vocab_size = Processor().getWordsCount()
 

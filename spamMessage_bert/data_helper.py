@@ -15,17 +15,17 @@ from path import DATA_PATH
 
 
 FILENAME_ORG = '带标签短信.txt'
-DICTFILE = 'vocab.txt'
+DICTFILE = 'vocab.dict'
 FILENAME = 'dev.csv'
 
 def data_process(text_str):
-    tokenizer = tokenization.FullTokenizer(os.path.join(DATA_PATH,DICTFILE))
+    tokenizer = tokenization.FullTokenizer(os.path.join(os.getcwd(),DICTFILE))
     tokens = tokenizer.tokenize(text_str)
     return tokens
 
 def load_dict():
     word_dict_re = dict()
-    dictFile = os.path.join(DATA_PATH,DICTFILE)
+    dictFile = os.path.join(os.getcwd(),DICTFILE)
     word_dict = dict()
     with open(dictFile, encoding='utf-8') as fin:
         for i, line in enumerate(fin.readlines()):
