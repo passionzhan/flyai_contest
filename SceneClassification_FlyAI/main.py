@@ -1,22 +1,26 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 30 19:44:02 2017
-
-@author: user
-"""
-from sklearn.metrics import f1_score
-import numpy as np
+# @File  : main.py
+# @Author: Zhan
+# @Date  : 8/13/2019
+# @Desc  :
 import argparse
-from flyai.dataset import Dataset
-from model import Model
-from path import MODEL_PATH
+
+import numpy as np
+from sklearn.metrics import f1_score
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.applications.resnet50 import ResNet50, preprocess_input
 from flyai.utils import remote_helper
+from flyai.dataset import Dataset
+from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.applications.densenet import DenseNet201, preprocess_input
+
+from path import MODEL_PATH, LOG_PATH
+from model import Model
 
 # 获取预训练模型路径
-path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
+# path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
+path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
+# path = "v0.8_densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -32,7 +36,7 @@ Keras模版项目下载： https://www.flyai.com/python/keras_template.zip
 '''
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=2, type=int, help="batch size")
+parser.add_argument("-b", "--BATCH", default=3, type=int, help="batch size")
 args = parser.parse_args()
 
 '''
@@ -42,62 +46,80 @@ flyai库中的提供的数据处理方法
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
 model = Model(dataset)
-nb_classes = 45
-start_lr = 0.001
 
-'''
-实现自己的网络结构
-'''
-inputs = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32, name='inputs')
-labels = tf.placeholder(shape=(None, nb_classes), dtype=tf.int32, name='labels')
-learning_rate = tf.placeholder(dtype=tf.float32, name='lr')
-inputs = preprocess_input(inputs, mode='tf')
+print("number of train examples:%d" % dataset.get_train_length())
+print("number of validation examples:%d" % dataset.get_validation_length())
+# region 超参数
+n_classes = 45
+fc1_dim = 512
+# endregion
 
-resNet50 = ResNet50(include_top=False, weights=None, pooling='avg')
-features = resNet50(inputs)
-fc_1 = tf.keras.layers.Dense(512, activation='relu')(features)
-logits = tf.keras.layers.Dense(nb_classes)(fc_1)
-outputs = tf.nn.softmax(logits, name='outputs')
+# region 定义输入变量
+x_inputs    = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32, name='x_inputs')
+y_inputs    = tf.placeholder(shape=(None, n_classes), dtype=tf.float32, name='y_inputs')
+# lr          = tf.placeholder(dtype=tf.float32, name='lr')
+inputs      = preprocess_input(x_inputs,)
+# endregion
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
-train_step = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
-acc_value = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(labels, outputs))
+# region 定义网络结构
+densenet201    = DenseNet201(include_top=False, weights=None, pooling='avg')
+features    = densenet201(inputs)
+fc1         = tf.keras.layers.Dense(fc1_dim, activation='relu')(features)
+fc2         = tf.keras.layers.Dense(n_classes,)(fc1)
+logits      = tf.nn.softmax(fc2)
+pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
+
+loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
+optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
+accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(tf.argmax(y_inputs,axis=-1), pred_y))
+# endregion
 
 saver = tf.train.Saver()
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-
-val_acc = 0
-lr = start_lr
+max_val_acc = 0
+globals_f1 = 0
 
 with tf.keras.backend.get_session() as sess:
     sess.run(tf.global_variables_initializer())
     print('load pretrain model...')
-    resNet50.load_weights(path)
+    densenet201.load_weights(path)
     print('load done !!!')
 
-    for step in range(dataset.get_step()):  # dataset.get_step() 获取数据的总迭代次数
-        x_train, y_train = dataset.next_train_batch()
-        _, temp_train_loss, temp_train_acc, temp_train_outputs = sess.run([train_step, loss, acc_value, outputs], feed_dict={inputs: x_train, labels: y_train, learning_rate: lr, K.learning_phase(): 1})
-        # 计算训练中的f1 score
-        temp_train_pred = np.argmax(temp_train_outputs, axis=-1)
-        temp_train_label = np.argmax(y_train, axis=-1)
-        temp_train_f1 = f1_score(temp_train_label, temp_train_pred, average='macro')
-        print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'%(step+1, dataset.get_step(), temp_train_loss, temp_train_acc, temp_train_f1))
-        if temp_train_loss <= 1:
-            lr = start_lr * 0.1
-        if step % 50 == 0:
+    # 利用tensorboard查看网络结构
+    writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+
+    for i in range(dataset.get_step()):
+        x_train,y_train = dataset.next_train_batch()
+        fetches = [optimize, loss, pred_y, accuracy]
+        _, train_loss, train_pred, train_acc =  sess.run(fetches,
+                 feed_dict={x_inputs:x_train,y_inputs:y_train,K.learning_phase():1},)
+
+        temp_train_f1 = f1_score(np.argmax(y_train,axis=-1), train_pred, average='macro')
+
+        if i % 10 == 0:
+            print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
+                  %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
+
+        if i%50 == 0:
             x_val, y_val = dataset.next_validation_batch()
-            temp_val_acc, temp_val_loss, temp_val_outputs = sess.run([acc_value, loss, outputs], feed_dict={inputs: x_val, labels: y_val, K.learning_phase(): 0})
-            # 计算校验集中的f1 score
-            temp_val_pred = np.argmax(temp_val_outputs, axis=-1)
-            temp_val_label = np.argmax(y_val, axis=-1)
-            temp_val_f1 = f1_score(temp_val_label, temp_val_pred, average='macro')
-            print('--------------- val_loss: %f, val_acc: %f, val_f1: %f'%(temp_val_loss, temp_val_acc, temp_val_f1))
-            if temp_val_acc >= val_acc:
-                val_acc = temp_val_acc
-                # 保存模型
-                model.save_model(sess, MODEL_PATH, overwrite=True)
-                print('--------------- saved model !!!!')
+            val_pred, val_loss, val_acc = sess.run([pred_y, loss, accuracy],
+                     feed_dict={x_inputs: x_val, y_inputs: y_val, K.learning_phase(): 0}, )
+
+            temp_val_f1 = f1_score(np.argmax(y_val, axis=-1), val_pred, average='macro')
+            print('step: %d/%d, val_loss: %f， val_acc: %f, val_f1: %f'
+                  %(i+1, dataset.get_step(), val_loss, val_acc, temp_val_f1))
+            if max_val_acc < val_acc or (max_val_acc == val_acc and globals_f1 < temp_val_f1):
+                max_val_acc, globals_f1 = val_acc, temp_val_f1
+                ### 加入模型保存代码
+                model.save_model(sess,MODEL_PATH,overwrite=True)
+
+
+
+
+
+
+
+
+
+
 
 

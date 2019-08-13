@@ -4,3 +4,5 @@
 flyai
 README.md
 data/
+*.h5
+data/
