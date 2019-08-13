@@ -7,6 +7,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 tf_study/
+*.h5
 
 # C extensions
 *.so
