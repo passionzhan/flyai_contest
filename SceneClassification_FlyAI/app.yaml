@@ -7,7 +7,7 @@ author: XY
 # 项目的描述
 description: 遥感图片场景分类
 # 项目使用的网络
-algorithm: CNN
+algorithm: densenet
 language: python3
 # 项目使用的框架
 framework: tensorflow
