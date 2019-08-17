@@ -11,8 +11,10 @@ from sklearn.metrics import f1_score
 import tensorflow as tf
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.applications.densenet import DenseNet201, preprocess_input
+# import keras.backend as K
+import tensorflow.keras.backend as K
+from tensorflow.keras.applications.densenet import DenseNet201, preprocess_input
+# from keras.applications.densenet import DenseNet201, preprocess_input
 
 from path import MODEL_PATH, LOG_PATH
 from model import Model
@@ -20,7 +22,7 @@ from model import Model
 # 获取预训练模型路径
 # path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
 path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
-# path = "v0.8_densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
+# path = r"D:/Study/flyai_contest/data/SceneClassification_data/v0.8-densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -44,7 +46,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=100)
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
@@ -64,14 +66,15 @@ inputs      = preprocess_input(x_inputs,)
 # region 定义网络结构
 densenet201    = DenseNet201(include_top=False, weights=None, pooling='avg')
 features    = densenet201(inputs)
-fc1         = tf.keras.layers.Dense(fc1_dim, activation='relu')(features)
-fc2         = tf.keras.layers.Dense(n_classes,)(fc1)
+fc1         = tf.layers.Dense(fc1_dim, activation='relu')(features)
+fc2         = tf.layers.Dense(n_classes,)(fc1)
 logits      = tf.nn.softmax(fc2)
 pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
 
 loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
 optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
-accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(tf.argmax(y_inputs,axis=-1), pred_y))
+# categorical_accuracy 函数自带类别转换。
+accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(y_inputs, logits))
 # endregion
 
 saver = tf.train.Saver()
@@ -85,21 +88,23 @@ with tf.keras.backend.get_session() as sess:
     print('load done !!!')
 
     # 利用tensorboard查看网络结构
-    writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+    # writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
 
     for i in range(dataset.get_step()):
         x_train,y_train = dataset.next_train_batch()
         fetches = [optimize, loss, pred_y, accuracy]
-        _, train_loss, train_pred, train_acc =  sess.run(fetches,
+        _, train_loss, train_pred, train_acc = sess.run(fetches,
                  feed_dict={x_inputs:x_train,y_inputs:y_train,K.learning_phase():1},)
 
         temp_train_f1 = f1_score(np.argmax(y_train,axis=-1), train_pred, average='macro')
 
-        if i % 10 == 0:
-            print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
-                  %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
+        # if i % 50 == 0:
+        #     print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
+        #           %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
 
-        if i%50 == 0:
+        if i%100 == 0:
+            print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
+                      %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
             x_val, y_val = dataset.next_validation_batch()
             val_pred, val_loss, val_acc = sess.run([pred_y, loss, accuracy],
                      feed_dict={x_inputs: x_val, y_inputs: y_val, K.learning_phase(): 0}, )

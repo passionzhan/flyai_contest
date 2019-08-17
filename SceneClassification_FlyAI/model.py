@@ -2,7 +2,9 @@
 import os
 from flyai.model.base import Base
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
+import tensorflow.keras.backend as K
+# import keras.backend as K
+# import tensorflow.python.keras.backend as K
 from path import MODEL_PATH
 
 TF_MODEL_NAME = "densenet.ckpt"
