@@ -46,7 +46,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=100)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=64)
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
