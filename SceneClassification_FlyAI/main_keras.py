@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# @File  : main_keras.py
+# @Author: Zhan
+# @Date  : 8/19/2019
+# @Desc  :
+
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # @File  : main.py
 # @Author: Zhan
 # @Date  : 8/13/2019
@@ -9,12 +16,14 @@ import argparse
 import numpy as np
 from sklearn.metrics import f1_score
 import tensorflow as tf
+import keras
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
 # import keras.backend as K
-import tensorflow.keras.backend as K
-from tensorflow.keras.applications.densenet import DenseNet201, preprocess_input
-# from keras.applications.densenet import DenseNet201, preprocess_input
+
+from keras.layers import Dense
+import keras.backend as K
+from keras.applications.densenet import DenseNet201, preprocess_input
 
 from path import MODEL_PATH, LOG_PATH
 from model import Model
@@ -57,24 +66,48 @@ fc1_dim = 512
 # endregion
 
 # region 定义输入变量
-x_inputs    = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32, name='x_inputs')
-y_inputs    = tf.placeholder(shape=(None, n_classes), dtype=tf.float32, name='y_inputs')
-# lr          = tf.placeholder(dtype=tf.float32, name='lr')
-inputs      = preprocess_input(x_inputs,mode='tf')
+# x_inputs    = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32, name='x_inputs')
+# y_inputs    = tf.placeholder(shape=(None, n_classes), dtype=tf.float32, name='y_inputs')
+# # lr          = tf.placeholder(dtype=tf.float32, name='lr')
+# inputs      = preprocess_input(x_inputs,mode='tf')
 # endregion
 
 # region 定义网络结构
 densenet201    = DenseNet201(include_top=False, weights=None, pooling='avg')
-features    = densenet201(inputs)
-fc1         = tf.layers.Dense(fc1_dim, activation='relu')(features)
-fc2         = tf.layers.Dense(n_classes,)(fc1)
-logits      = tf.nn.softmax(fc2)
-pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
+densenet201.add(Dense(units=fc1_dim, activation='relu',))
+densenet201.add(Dense(units=n_classes, activation='softmax'))
 
-loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
-optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
-# categorical_accuracy 函数自带类别转换。
-accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(y_inputs, logits))
+densenet201.compile(loss='categorical_crossentropy',
+                    optimizer=keras.optimizers.adam(lr=0.001,),
+                    metrics=['accuracy'])
+
+print('load pretrain model...')
+densenet201.load_weights(path)
+print('load done !!!')
+for i in range(dataset.get_step()):
+    x_train, y_train = dataset.next_train_batch()
+    densenet201.train_on_batch(x_train, y_train)
+
+    if i % 100 == 0 or i == dataset.get_step() - 1:
+        x_val, y_val = dataset.next_validation_batch()
+        train_batch = x_train.shape[0]
+        val_batch = x_val.shape[0]
+        train_loss_and_metrics = densenet201.evaluate(x_train, y_train, batch_size = train_batch)
+        val_loss_and_metrics = densenet201.evaluate(x_val, y_val,batch_size = val_batch)
+
+        print('step: %d/%d, val_loss: %f， val_acc: %f, val_f1: %f'
+              % (i + 1, dataset.get_step(), val_loss_and_metrics[], val_acc, temp_val_f1))
+
+# features    = densenet201(inputs)
+# fc1         = tf.layers.Dense(fc1_dim, activation='relu')(features)
+# fc2         = tf.layers.Dense(n_classes,)(fc1)
+# logits      = tf.nn.softmax(fc2)
+# pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
+#
+# loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
+# optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
+# # categorical_accuracy 函数自带类别转换。
+# accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(y_inputs, logits))
 # endregion
 
 saver = tf.train.Saver()
@@ -117,15 +150,3 @@ with tf.keras.backend.get_session() as sess:
             #     ### 加入模型保存代码
             if i == dataset.get_step() - 1:
                 model.save_model(sess,MODEL_PATH,overwrite=True)
-
-
-
-
-
-
-
-
-
-
-
-
