@@ -81,7 +81,7 @@ predictions      = Dense(n_classes, activation='softmax')(fc1)
 mymodel         = tensorflow.keras.models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=tensorflow.keras.optimizers.adam(lr=0.001,),
+                    optimizer=tensorflow.keras.optimizers.Adam(lr=0.001,),
                     metrics=['accuracy'])
 
 
