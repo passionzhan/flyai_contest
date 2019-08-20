@@ -16,12 +16,12 @@ import argparse
 import numpy as np
 from sklearn.metrics import f1_score
 import tensorflow as tf
-import keras
+import tensorflow.keras
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
 # import keras.backend as K
 
-from keras.layers import Dense
+from tensorflow.keras.layers import Dense
 import keras.backend as K
 from tensorflow.keras.applications.densenet import DenseNet201, preprocess_input
 
@@ -78,10 +78,10 @@ features        = densenet201.output
 fc1             = Dense(fc1_dim, activation='relu',)(features)
 predictions      = Dense(n_classes, activation='softmax')(fc1)
 
-mymodel         = keras.models.Model(inputs=densenet201.input, outputs=predictions)
+mymodel         = tensorflow.keras.models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.adam(lr=0.001,),
+                    optimizer=tensorflow.keras.optimizers.adam(lr=0.001,),
                     metrics=['accuracy'])
 
 
