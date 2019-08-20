@@ -23,15 +23,15 @@ from flyai.dataset import Dataset
 
 from keras.layers import Dense
 import keras.backend as K
-from keras.applications.densenet import DenseNet201, preprocess_input
+from tensorflow.keras.applications.densenet import DenseNet201, preprocess_input
 
 from path import MODEL_PATH, LOG_PATH
 from model import Model
 
 # 获取预训练模型路径
 # path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
-path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
-# path = r"D:/Study/flyai_contest/data/SceneClassification_data/v0.8-densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
+# path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
+path = r"D:/jack_doc/python_src/flyai/data/SceneClassification_FlyAI_data/v0.8-densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -47,7 +47,7 @@ Keras模版项目下载： https://www.flyai.com/python/keras_template.zip
 '''
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=3, type=int, help="batch size")
+parser.add_argument("-b", "--BATCH", default=1, type=int, help="batch size")
 args = parser.parse_args()
 
 '''
@@ -55,7 +55,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=64)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=1)
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
@@ -73,80 +73,48 @@ fc1_dim = 512
 # endregion
 
 # region 定义网络结构
-densenet201    = DenseNet201(include_top=False, weights=None, pooling='avg')
-densenet201.add(Dense(units=fc1_dim, activation='relu',))
-densenet201.add(Dense(units=n_classes, activation='softmax'))
+densenet201     = DenseNet201(include_top=False, weights=None, pooling='avg')
+features        = densenet201.output
+fc1             = Dense(fc1_dim, activation='relu',)(features)
+predictions      = Dense(n_classes, activation='softmax')(fc1)
 
-densenet201.compile(loss='categorical_crossentropy',
+mymodel         = keras.models.Model(inputs=densenet201.input, outputs=predictions)
+
+mymodel.compile(loss='categorical_crossentropy',
                     optimizer=keras.optimizers.adam(lr=0.001,),
                     metrics=['accuracy'])
+
 
 print('load pretrain model...')
 densenet201.load_weights(path)
 print('load done !!!')
-for i in range(dataset.get_step()):
-    x_train, y_train = dataset.next_train_batch()
-    densenet201.train_on_batch(x_train, y_train)
 
-    if i % 100 == 0 or i == dataset.get_step() - 1:
-        x_val, y_val = dataset.next_validation_batch()
-        train_batch = x_train.shape[0]
-        val_batch = x_val.shape[0]
-        train_loss_and_metrics = densenet201.evaluate(x_train, y_train, batch_size = train_batch)
-        val_loss_and_metrics = densenet201.evaluate(x_val, y_val,batch_size = val_batch)
-
-        print('step: %d/%d, val_loss: %f， val_acc: %f, val_f1: %f'
-              % (i + 1, dataset.get_step(), val_loss_and_metrics[], val_acc, temp_val_f1))
-
-# features    = densenet201(inputs)
-# fc1         = tf.layers.Dense(fc1_dim, activation='relu')(features)
-# fc2         = tf.layers.Dense(n_classes,)(fc1)
-# logits      = tf.nn.softmax(fc2)
-# pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
-#
-# loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
-# optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
-# # categorical_accuracy 函数自带类别转换。
-# accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(y_inputs, logits))
-# endregion
-
-saver = tf.train.Saver()
 max_val_acc = 0
 globals_f1 = 0
 
-with tf.keras.backend.get_session() as sess:
-    sess.run(tf.global_variables_initializer())
-    print('load pretrain model...')
-    densenet201.load_weights(path)
-    print('load done !!!')
+for i in range(dataset.get_step()):
+    x_train, y_train = dataset.next_train_batch()
+    preprocess_input(x_train)
+    mymodel.train_on_batch(x_train, y_train)
 
-    # 利用tensorboard查看网络结构
-    # writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+    if i % 100 == 0 or i == dataset.get_step() - 1:
+        x_val, y_val = dataset.next_validation_batch()
+        preprocess_input(x_val)
+        train_batch = x_train.shape[0]
+        val_batch = x_val.shape[0]
+        train_loss_and_metrics = mymodel.evaluate(x_train, y_train, batch_size = train_batch)
+        val_loss_and_metrics = mymodel.evaluate(x_val, y_val,batch_size = val_batch)
 
-    for i in range(dataset.get_step()):
-        x_train,y_train = dataset.next_train_batch()
-        fetches = [optimize, loss, pred_y, accuracy]
-        _, train_loss, train_pred, train_acc = sess.run(fetches,
-                 feed_dict={x_inputs:x_train,y_inputs:y_train,K.learning_phase():1},)
+        print('step: %d/%d, train_loss: %f， train_acc: %f, '
+              % (i + 1, dataset.get_step(), train_loss_and_metrics['categorical_crossentropy'],
+                 train_loss_and_metrics['accuracy']))
 
-        temp_train_f1 = f1_score(np.argmax(y_train,axis=-1), train_pred, average='macro')
+        print('step: %d/%d, val_loss: %f， val_acc: %f, '
+              % (i + 1, dataset.get_step(), val_loss_and_metrics['categorical_crossentropy'],
+                 val_loss_and_metrics['accuracy']))
 
-        # if i % 50 == 0:
-        #     print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
-        #           %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
 
-        if i%100 == 0 or i == dataset.get_step() - 1:
-            print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
-                      %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
-            x_val, y_val = dataset.next_validation_batch()
-            val_pred, val_loss, val_acc = sess.run([pred_y, loss, accuracy],
-                     feed_dict={x_inputs: x_val, y_inputs: y_val, K.learning_phase(): 0}, )
-
-            temp_val_f1 = f1_score(np.argmax(y_val, axis=-1), val_pred, average='macro')
-            print('step: %d/%d, val_loss: %f， val_acc: %f, val_f1: %f'
-                  %(i+1, dataset.get_step(), val_loss, val_acc, temp_val_f1))
-            # if max_val_acc < val_acc or (max_val_acc == val_acc and globals_f1 < temp_val_f1):
-            #     max_val_acc, globals_f1 = val_acc, temp_val_f1
-            #     ### 加入模型保存代码
-            if i == dataset.get_step() - 1:
-                model.save_model(sess,MODEL_PATH,overwrite=True)
+        if max_val_acc < val_loss_and_metrics['accuracy']:
+            max_val_acc = val_loss_and_metrics['accuracy']
+            ### 加入模型保存代码
+            mymodel.save(MODEL_PATH, overwrite=True, include_optimizer=True)

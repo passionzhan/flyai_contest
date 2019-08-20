@@ -59,6 +59,6 @@ class Model(Base):
     '''
     def save_model(self, sess, path, name=TF_MODEL_NAME, overwrite=False):
         super().save_model(sess, path, name, overwrite)
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(var_list=tf.global_variables())
         saver.save(sess, os.path.join(path, name))
 
