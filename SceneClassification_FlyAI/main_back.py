@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score
 import numpy as np
 import argparse
 from flyai.dataset import Dataset
-from model import Model
+from model_back import Model
 from path import MODEL_PATH
 import tensorflow as tf
 from tensorflow.python.keras import backend as K

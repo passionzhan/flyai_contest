@@ -4,7 +4,7 @@
 '''
 
 from flyai.dataset import Dataset
-from model import Model
+from model_tf_keras import Model
 
 data = Dataset()
 model = Model(data)
@@ -14,4 +14,6 @@ x_test, y_test = dataset.evaluate_data_no_processor('dev.csv')
 # 用于测试 predict_all 函数
 preds = model.predict_all(x_test)
 labels = [i['label'] for i in y_test]
+
+print(labels)
 

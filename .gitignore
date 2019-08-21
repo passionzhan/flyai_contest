@@ -8,7 +8,8 @@ __pycache__/
 *$py.class
 tf_study/
 *.h5
-
+tensorflow_template/
+keras_template/
 # C extensions
 *.so
 

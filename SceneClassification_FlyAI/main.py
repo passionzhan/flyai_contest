@@ -2,29 +2,25 @@
 # -*- coding: utf-8 -*-
 # @File  : main.py
 # @Author: Zhan
-# @Date  : 8/13/2019
+# @Date  : 8/19/2019
 # @Desc  :
+
 import argparse
 
-import numpy as np
-from sklearn.metrics import f1_score
-import tensorflow as tf
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
-# import keras.backend as K
-import tensorflow.keras.backend as K
-from tensorflow.keras.applications.densenet import DenseNet201, preprocess_input
-# import keras.backend as K
-# from keras.applications.densenet import DenseNet201, preprocess_input
-# from keras.applications.densenet import DenseNet201, preprocess_input
-
-from path import MODEL_PATH, LOG_PATH
+import keras
+from keras.layers import Dense
+from keras import models
+from keras.metrics import categorical_accuracy
+from keras.utils import plot_model
+from keras_applications.densenet import DenseNet201, preprocess_input
 from model import Model
 
 # 获取预训练模型路径
 # path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
-path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
-# path = r"D:/jack_doc/python_src/flyai/data/SceneClassification_FlyAI_data/v0.8-densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
+# path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
+path = r"D:/jack_doc/python_src/flyai/data/SceneClassification_FlyAI_data/v0.8_densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -48,94 +44,74 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=32)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=1)
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())
+
 # region 超参数
 n_classes = 45
 fc1_dim = 512
 # endregion
 
-# region 定义输入变量
-x_inputs    = tf.placeholder(shape=(None, 224, 224, 3), dtype=tf.float32, name='x_inputs')
-y_inputs    = tf.placeholder(shape=(None, n_classes), dtype=tf.float32, name='y_inputs')
-# lr          = tf.placeholder(dtype=tf.float32, name='lr')
-inputs      = preprocess_input(x_inputs,)
-# endregion
-
 # region 定义网络结构
-densenet201    = DenseNet201(include_top=False, weights=None, pooling='avg')
-features    = densenet201(inputs)
-fc1         = tf.layers.Dense(fc1_dim, activation='relu')(features)
-fc2         = tf.layers.Dense(n_classes,)(fc1)
-logits      = tf.nn.softmax(fc2)
-pred_y      = tf.argmax(logits, axis=-1, name='pred_y')
+kwargs = {'backend':keras.backend,
+          'layers': keras.layers,
+          'models': keras.models,
+          'utils': keras.utils}
 
-loss        = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_inputs,logits=fc2))
+densenet201     = DenseNet201(include_top=False, weights=None, pooling='avg', **kwargs)
+features        = densenet201.output
+fc1             = Dense(fc1_dim, activation='relu',)(features)
+predictions      = Dense(n_classes, activation='softmax')(fc1)
 
-# keras 的BatchNormalization当在tensorflow的session中使用时，必须将其手动加入到更新操作集合中
-ops = tf.get_default_graph().get_operations()
-update_ops = [op for op in ops if ("AssignMovingAvg" in op.name and op.type == "AssignSubVariableOp")]
-for op in update_ops:
-    tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, op)
-update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-with tf.control_dependencies(update_ops):
-    optimize    = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss,)
-# categorical_accuracy 函数自带类别转换。
-accuracy    = tf.reduce_mean(tf.keras.metrics.categorical_accuracy(y_inputs, logits))
+mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
+
+mymodel.compile(loss='categorical_crossentropy',
+                    optimizer=keras.optimizers.Adam(lr=0.001,),
+                    metrics=[categorical_accuracy])
+
+# region 打印模型信息
+# mymodel.summary()
+# plot_model 需要安装pydot and graphviz
+# plot_model(mymodel, to_file='mymodel.png')
 # endregion
 
-# saver = tf.train.Saver(var_list = tf.global_variables())
+print('load pretrain model...')
+densenet201.load_weights(path)
+print('load done !!!')
+
 max_val_acc = 0
 globals_f1 = 0
 
-with tf.keras.backend.get_session() as sess:
-    sess.run(tf.global_variables_initializer())
-    print('load pretrain model...')
-    densenet201.load_weights(path)
-    print('load done !!!')
+for i in range(dataset.get_step()):
+    x_train, y_train = dataset.next_train_batch()
+    x_train = preprocess_input(x_train,**kwargs)
+    mymodel.train_on_batch(x_train, y_train)
 
-    # 利用tensorboard查看网络结构
-    # writer = tf.summary.FileWriter(LOG_PATH, sess.graph)
+    if i % 1 == 0 or i == dataset.get_step() - 1:
+        x_val, y_val = dataset.next_validation_batch()
+        x_val = preprocess_input(x_val, **kwargs)
+        train_batch = x_train.shape[0]
+        val_batch = x_val.shape[0]
+        train_loss_and_metrics = mymodel.evaluate(x_train, y_train, batch_size = train_batch)
+        val_loss_and_metrics = mymodel.evaluate(x_val, y_val,batch_size = val_batch)
+        # val_Precision = val_loss_and_metrics[2]
+        # val_Reacll  = val_loss_and_metrics[3]
+        # if val_Precision == 0: val_Precision = 1e-10
+        # if val_Reacll == 0: val_Reacll = 1e-10
+        # val_F1 = 2 * (val_Precision * val_Reacll) / (val_Precision + val_Reacll)
+        print('step: %d/%d, train_loss: %f， train_acc: %f, '
+              % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
+                 train_loss_and_metrics[1]))
 
-    for i in range(dataset.get_step()):
-        x_train,y_train = dataset.next_train_batch()
-        fetches = [optimize, loss, pred_y, accuracy]
-        _, train_loss, train_pred, train_acc = sess.run(fetches,
-                 feed_dict={x_inputs:x_train,y_inputs:y_train,K.learning_phase():1},)
+        print('step: %d/%d, val_loss: %f， val_acc: %f'
+              % (i + 1, dataset.get_step(), val_loss_and_metrics[0],
+                 val_loss_and_metrics[1],))
+                 # val_loss_and_metrics[1],))
 
-        temp_train_f1 = f1_score(np.argmax(y_train,axis=-1), train_pred, average='macro')
-
-        # if i % 50 == 0:
-        #     print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
-        #           %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
-
-        if i% 100 == 0 or i == dataset.get_step() - 1:
-            print('step: %d/%d, train_loss: %f， train_acc: %f, train_f1: %f'
-                      %(i+1, dataset.get_step(), train_loss, train_acc, temp_train_f1))
-            x_val, y_val = dataset.next_validation_batch()
-            val_pred, val_loss, val_acc = sess.run([pred_y, loss, accuracy],
-                     feed_dict={x_inputs: x_val, y_inputs: y_val, K.learning_phase(): 0}, )
-
-            temp_val_f1 = f1_score(np.argmax(y_val, axis=-1), val_pred, average='macro')
-            print('step: %d/%d, val_loss: %f， val_acc: %f, val_f1: %f'
-                  %(i+1, dataset.get_step(), val_loss, val_acc, temp_val_f1))
-            if max_val_acc < val_acc or (max_val_acc == val_acc and globals_f1 < temp_val_f1):
-                max_val_acc, globals_f1 = val_acc, temp_val_f1
-                ### 加入模型保存代码
-                # if i == dataset.get_step() - 1:
-                model.save_model(sess,MODEL_PATH,overwrite=True)
-
-
-
-
-
-
-
-
-
-
-
-
+        if max_val_acc < val_loss_and_metrics[1]:
+            # or (max_val_acc == val_loss_and_metrics[1] and globals_f1 < val_F1):
+            max_val_acc, = val_loss_and_metrics[1],
+            model.save_model(mymodel,overwrite=True)
