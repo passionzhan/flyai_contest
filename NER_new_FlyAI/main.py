@@ -61,6 +61,7 @@ ner_model.summary()
 
 ner_model.compile(optimizer=keras.optimizers.Adam(lr=LEARN_RATE), loss=crf.loss_function, metrics=[crf.accuracy])
 
+max_val_acc, min_loss = 0, float('inf')
 for i in range(dataset.get_step()):
     x_train, y_train, x_test, y_test = dataset.next_batch(args.BATCH)
     # padding
@@ -79,7 +80,7 @@ for i in range(dataset.get_step()):
             # padding
             x_val = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_val])
             y_val = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_val])
-            val_loss_and_metrics = ner_model.evaluate(x_val, y_val,verbose=0)
+            val_loss_and_metrics = ner_model.evaluate(x_val, y_val, verbose=0)
             val_loss.append(val_loss_and_metrics[0])
             val_acc.append(val_loss_and_metrics[1])
 
