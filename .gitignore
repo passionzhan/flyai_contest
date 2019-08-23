@@ -7,9 +7,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 tf_study/
+NER_new_FlyAI_org/
 *.h5
 tensorflow_template/
 keras_template/
+chinese_L-12_H-768_A-12/
 # C extensions
 *.so
 

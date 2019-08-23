@@ -6,10 +6,12 @@
 # @Desc  :
 
 import argparse
+from functools import reduce
 
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
 import keras
+import numpy as np
 from keras.layers import Dense
 from keras import models
 from keras.metrics import categorical_accuracy
@@ -19,8 +21,8 @@ from model import Model
 
 # 获取预训练模型路径
 # path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
-# path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
-path = r"D:/jack_doc/python_src/flyai/data/SceneClassification_FlyAI_data/v0.8_densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
+path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.8|densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5")
+# path = r"D:/jack_doc/python_src/flyai/data/SceneClassification_FlyAI_data/v0.8_densenet201_weights_tf_dim_ordering_tf_kernels_notop.h5"
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -44,11 +46,15 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=1)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=6)
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())
+
+# for i in range(100):
+#     val_x,val_y = dataset.next_validation_batch()
+#     print(val_x.shape[0])
 
 # region 超参数
 n_classes = 45
@@ -69,7 +75,7 @@ predictions      = Dense(n_classes, activation='softmax')(fc1)
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.001,),
+                    optimizer=keras.optimizers.Adam(lr=0.0005,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
@@ -83,35 +89,71 @@ densenet201.load_weights(path)
 print('load done !!!')
 
 max_val_acc = 0
-globals_f1 = 0
+min_loss = float('inf')
+iCount = 0
 
 for i in range(dataset.get_step()):
     x_train, y_train = dataset.next_train_batch()
     x_train = preprocess_input(x_train,**kwargs)
     mymodel.train_on_batch(x_train, y_train)
 
-    if i % 1 == 0 or i == dataset.get_step() - 1:
-        x_val, y_val = dataset.next_validation_batch()
-        x_val = preprocess_input(x_val, **kwargs)
-        train_batch = x_train.shape[0]
-        val_batch = x_val.shape[0]
-        train_loss_and_metrics = mymodel.evaluate(x_train, y_train, batch_size = train_batch)
-        val_loss_and_metrics = mymodel.evaluate(x_val, y_val,batch_size = val_batch)
+    if i % 80 == 0 or i == dataset.get_step() - 1:
+        iter_num = dataset.get_validation_length()/6
+
+        # 直接丢弃不够一次循环的验证数据
+        if iCount + 144 > iter_num:
+            for iLoop in range(iCount+1,int(iter_num+1)):
+                dataset.next_validation_batch()
+            iCount = 0
+            continue
+
+        for iLoop in range(18):
+            extra_x_train = np.zeros(shape=(36,224,224,3), dtype=np.uint8)
+            extra_y_train = np.zeros(shape=(36,n_classes), dtype=np.uint8)
+
+            for j in range(6):
+                x_val, y_val = dataset.next_validation_batch()
+                iCount += 1
+                for ii in range(x_val.shape[0]):
+                    extra_x_train[ii] = x_val[ii]
+                    extra_y_train[ii] = y_val[ii]
+
+            extra_x_train = preprocess_input(extra_x_train, **kwargs)
+            train_loss_and_metrics = mymodel.train_on_batch(extra_x_train, extra_y_train)
+            if iLoop == 17:
+                # train_loss_and_metrics = mymodel.evaluate(extra_x_train, extra_y_train,batch_size=36,verbose=0)
+                print('step: %d/%d, train_loss: %f， train_acc: %f, '
+                      % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
+                         train_loss_and_metrics[1]))
+
+        val_acc = []
+        val_loss = []
+        for iLoop in range(6 * 6):
+            # 此处获取的x_val样本数为dataset 的 val_batch == 6
+            x_val, y_val = dataset.next_validation_batch()
+            iCount += 1
+            x_val = preprocess_input(x_val, **kwargs)
+            val_loss_and_metrics = mymodel.evaluate(x_val, y_val,verbose=0)
+            val_loss.append(val_loss_and_metrics[0])
+            val_acc.append(val_loss_and_metrics[1])
+
+        cur_acc = reduce(lambda x, y: x + y, val_acc) / len(val_acc)
+        cur_loss = reduce(lambda x, y: x + y, val_loss) / len(val_loss)
+
+
         # val_Precision = val_loss_and_metrics[2]
         # val_Reacll  = val_loss_and_metrics[3]
         # if val_Precision == 0: val_Precision = 1e-10
         # if val_Reacll == 0: val_Reacll = 1e-10
         # val_F1 = 2 * (val_Precision * val_Reacll) / (val_Precision + val_Reacll)
-        print('step: %d/%d, train_loss: %f， train_acc: %f, '
-              % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
-                 train_loss_and_metrics[1]))
+
 
         print('step: %d/%d, val_loss: %f， val_acc: %f'
-              % (i + 1, dataset.get_step(), val_loss_and_metrics[0],
-                 val_loss_and_metrics[1],))
+              % (i + 1, dataset.get_step(), cur_loss, cur_acc,))
                  # val_loss_and_metrics[1],))
 
-        if max_val_acc < val_loss_and_metrics[1]:
-            # or (max_val_acc == val_loss_and_metrics[1] and globals_f1 < val_F1):
-            max_val_acc, = val_loss_and_metrics[1],
+        if max_val_acc < cur_acc \
+                or (max_val_acc == cur_acc and min_loss > cur_loss):
+            max_val_acc, min_loss = cur_acc, cur_loss
+            print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
             model.save_model(mymodel,overwrite=True)
