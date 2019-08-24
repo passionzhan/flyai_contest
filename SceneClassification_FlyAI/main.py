@@ -115,8 +115,8 @@ for i in range(dataset.get_step()):
                 x_val, y_val = dataset.next_validation_batch()
                 iCount += 1
                 for ii in range(x_val.shape[0]):
-                    extra_x_train[ii] = x_val[ii]
-                    extra_y_train[ii] = y_val[ii]
+                    extra_x_train[ii+j*6] = x_val[ii]
+                    extra_y_train[ii+j*6] = y_val[ii]
 
             extra_x_train = preprocess_input(extra_x_train, **kwargs)
             train_loss_and_metrics = mymodel.train_on_batch(extra_x_train, extra_y_train)

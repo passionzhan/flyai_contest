@@ -12,6 +12,7 @@ NER_new_FlyAI_org/
 tensorflow_template/
 keras_template/
 chinese_L-12_H-768_A-12/
+SceneClassification_FlyAI1111/
 # C extensions
 *.so
 
