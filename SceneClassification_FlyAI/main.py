@@ -76,7 +76,7 @@ predictions      = Dense(n_classes, activation='softmax')(fc1)
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.00035,),
+                    optimizer=keras.optimizers.Adam(lr=0.00037,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
@@ -107,13 +107,14 @@ for i in range(dataset.get_step() // RATIO):
         imageGen = ImageDataGenerator(horizontal_flip=True, vertical_flip=True,
                                       rotation_range=90, brightness_range=[0.6, 5])
         small_step = 0
-        batch_size_small = 36
-        for x_train_small, y_train_small in imageGen.flow(x_train_big, y_train_big,batch_size=batch_size_small):
+        batch_size_small_train = 32
+        for x_train_small, y_train_small in imageGen.flow(x_train_big, y_train_big,
+                                                          batch_size=batch_size_small_train):
             x_train_small = preprocess_input(x_train_small, **kwargs)
             train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
             small_step += 1
-            # 保证扩充数量不超过此批数据的2倍
-            if small_step > 2 * (x_train_big.shape[0] // batch_size_small):
+            # 保证扩充数量不超过此批数据的1倍
+            if small_step > 1 * (x_train_big.shape[0] / batch_size_small_train):
                 if (i_in + 1) % 5 == 0:   # 减少打印次数。
                     print('step: %d/%d, train_loss: %f， train_acc: %f, '
                           % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
@@ -149,12 +150,13 @@ for i in range(dataset.get_step() // RATIO):
             extra_y_train[ii + iLoop * 6] = y_val[ii]
 
     small_step = 0
-    for x_train_small, y_train_small in imageGen.flow(extra_x_train,extra_y_train,batch_size=batch_size_small):
+    batch_size_small_val = 36
+    for x_train_small, y_train_small in imageGen.flow(extra_x_train,extra_y_train,batch_size=batch_size_small_val):
         x_train_small = preprocess_input(x_train_small, **kwargs)
         train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
         small_step += 1
-        # 保证扩充数量不超过此批数据的2倍
-        if small_step > 2 * (extra_x_train.shape[0] // batch_size_small):
+        # 保证扩充数量不超过此批数据的1倍
+        if small_step > 1 * (extra_x_train.shape[0] / batch_size_small_val):
             print('step: %d/%d, train_loss: %f， train_acc: %f, '
                   % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
                      train_loss_and_metrics[1]))
