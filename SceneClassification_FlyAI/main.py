@@ -15,6 +15,7 @@ import numpy as np
 from keras.layers import Dense
 from keras import models
 from keras.metrics import categorical_accuracy
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import plot_model
 from keras_applications.densenet import DenseNet201, preprocess_input
 from model import Model
@@ -41,20 +42,20 @@ parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
 parser.add_argument("-b", "--BATCH", default=1, type=int, help="batch size")
 args = parser.parse_args()
 
+
 '''
 flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 print('batch_size: %d, epoch_size: %d'%(args.BATCH, args.EPOCHS))
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=6)
+
 model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())
 
-# for i in range(100):
-#     val_x,val_y = dataset.next_validation_batch()
-#     print(val_x.shape[0])
+# x_train,y_train,x_val,y_val = dataset.get_all_processor_data()
 
 # region 超参数
 n_classes = 45
@@ -75,7 +76,7 @@ predictions      = Dense(n_classes, activation='softmax')(fc1)
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.0005,),
+                    optimizer=keras.optimizers.Adam(lr=0.00035,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
@@ -92,68 +93,102 @@ max_val_acc = 0
 min_loss = float('inf')
 iCount = 0
 
-for i in range(dataset.get_step()):
-    x_train, y_train = dataset.next_train_batch()
-    x_train = preprocess_input(x_train,**kwargs)
-    mymodel.train_on_batch(x_train, y_train)
+RATIO = 10
+for i in range(dataset.get_step() // RATIO):
+    '''
+    获取 args.BATCH 数据量，准备设置为 2560,实际最大只能256，
+    加循环迭代10次,保证用于训练的验证集中数据和训练集中
+    数据训练次数大体一致 
+    '''
+    for i_in in range(RATIO):
+        x_train_big, y_train_big = dataset.next_train_batch()
 
-    if i % 80 == 0 or i == dataset.get_step() - 1:
-        iter_num = dataset.get_validation_length()/6
+        #  数据增强器
+        imageGen = ImageDataGenerator(horizontal_flip=True, vertical_flip=True,
+                                      rotation_range=90, brightness_range=[0.6, 5])
+        small_step = 0
+        batch_size_small = 36
+        for x_train_small, y_train_small in imageGen.flow(x_train_big, y_train_big,batch_size=batch_size_small):
+            x_train_small = preprocess_input(x_train_small, **kwargs)
+            train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
+            small_step += 1
+            # 保证扩充数量不超过此批数据的2倍
+            if small_step > 2 * (x_train_big.shape[0] // batch_size_small):
+                if (i_in + 1) % 5 == 0:   # 减少打印次数。
+                    print('step: %d/%d, train_loss: %f， train_acc: %f, '
+                          % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
+                             train_loss_and_metrics[1]))
+                break
 
-        # 直接丢弃不够一次循环的验证数据
-        if iCount + 144 > iter_num:
-            for iLoop in range(iCount+1,int(iter_num+1)):
-                dataset.next_validation_batch()
-            iCount = 0
-            continue
-
-        for iLoop in range(18):
-            extra_x_train = np.zeros(shape=(36,224,224,3), dtype=np.uint8)
-            extra_y_train = np.zeros(shape=(36,n_classes), dtype=np.uint8)
-
-            for j in range(6):
-                x_val, y_val = dataset.next_validation_batch()
-                iCount += 1
-                for ii in range(x_val.shape[0]):
-                    extra_x_train[ii+j*6] = x_val[ii]
-                    extra_y_train[ii+j*6] = y_val[ii]
-
-            extra_x_train = preprocess_input(extra_x_train, **kwargs)
-            train_loss_and_metrics = mymodel.train_on_batch(extra_x_train, extra_y_train)
-            if iLoop == 17:
-                # train_loss_and_metrics = mymodel.evaluate(extra_x_train, extra_y_train,batch_size=36,verbose=0)
-                print('step: %d/%d, train_loss: %f， train_acc: %f, '
-                      % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
-                         train_loss_and_metrics[1]))
-
-        val_acc = []
-        val_loss = []
-        for iLoop in range(6 * 6):
-            # 此处获取的x_val样本数为dataset 的 val_batch == 6
-            x_val, y_val = dataset.next_validation_batch()
-            iCount += 1
-            x_val = preprocess_input(x_val, **kwargs)
-            val_loss_and_metrics = mymodel.evaluate(x_val, y_val,verbose=0)
-            val_loss.append(val_loss_and_metrics[0])
-            val_acc.append(val_loss_and_metrics[1])
-
-        cur_acc = reduce(lambda x, y: x + y, val_acc) / len(val_acc)
-        cur_loss = reduce(lambda x, y: x + y, val_loss) / len(val_loss)
+    # args.BATCH  准备设为 2560
+    iter_num = dataset.get_validation_length()//6
+    # 直接丢弃不够一次循环的验证数据
+    # if iCount + 144 > iter_num:
+    #     for iLoop in range(iCount+1,int(iter_num+1)):
+    #         dataset.next_validation_batch()
+    #     iCount = 0
+    #     continue
 
 
-        # val_Precision = val_loss_and_metrics[2]
-        # val_Reacll  = val_loss_and_metrics[3]
-        # if val_Precision == 0: val_Precision = 1e-10
-        # if val_Reacll == 0: val_Reacll = 1e-10
-        # val_F1 = 2 * (val_Precision * val_Reacll) / (val_Precision + val_Reacll)
+    #最后一批验证数据为了代码简洁，全部用来训练
+    overFlag = False
+    if iCount + 144 > iter_num:
+        extra_batch_num = iter_num - iCount
+        overFlag = True
+    else:
+        extra_batch_num = 18*6
 
+    extra_x_train = np.zeros(shape=(6*extra_batch_num,224,224,3), dtype=np.uint8)
+    extra_y_train = np.zeros(shape=(6*extra_batch_num,n_classes), dtype=np.uint8)
 
-        print('step: %d/%d, val_loss: %f， val_acc: %f'
-              % (i + 1, dataset.get_step(), cur_loss, cur_acc,))
-                 # val_loss_and_metrics[1],))
+    for iLoop in range(extra_batch_num):
+        x_val, y_val = dataset.next_validation_batch()
+        iCount += 1
+        for ii in range(x_val.shape[0]):
+            extra_x_train[ii + iLoop * 6] = x_val[ii]
+            extra_y_train[ii + iLoop * 6] = y_val[ii]
 
-        if max_val_acc < cur_acc \
-                or (max_val_acc == cur_acc and min_loss > cur_loss):
-            max_val_acc, min_loss = cur_acc, cur_loss
-            print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
-            model.save_model(mymodel,overwrite=True)
+    small_step = 0
+    for x_train_small, y_train_small in imageGen.flow(extra_x_train,extra_y_train,batch_size=batch_size_small):
+        x_train_small = preprocess_input(x_train_small, **kwargs)
+        train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
+        small_step += 1
+        # 保证扩充数量不超过此批数据的2倍
+        if small_step > 2 * (extra_x_train.shape[0] // batch_size_small):
+            print('step: %d/%d, train_loss: %f， train_acc: %f, '
+                  % (i + 1, dataset.get_step(), train_loss_and_metrics[0],
+                     train_loss_and_metrics[1]))
+            break
+
+    #  最后一批，没有数据进行验证，直接进入下一轮迭代，保证验证集中用于训练和验证的数据固定也不交叉。
+    if overFlag:
+        iCount = 0
+        continue
+
+    val_acc = []
+    val_loss = []
+    for iLoop in range(6 * 6):
+        # 此处获取的x_val样本数为dataset 的 val_batch == 6
+        x_val, y_val = dataset.next_validation_batch()
+        iCount += 1
+        x_val = preprocess_input(x_val, **kwargs)
+        val_loss_and_metrics = mymodel.evaluate(x_val, y_val,verbose=0)
+        val_loss.append(val_loss_and_metrics[0])
+        val_acc.append(val_loss_and_metrics[1])
+
+    cur_acc = reduce(lambda x, y: x + y, val_acc) / len(val_acc)
+    cur_loss = reduce(lambda x, y: x + y, val_loss) / len(val_loss)
+
+    # 最后一个批次，迭代次数置0,
+    if iCount == iter_num:
+        iCount = 0
+
+    print('step: %d/%d, val_loss: %f， val_acc: %f'
+          % (i + 1, dataset.get_step(), cur_loss, cur_acc,))
+             # val_loss_and_metrics[1],))
+
+    if max_val_acc < cur_acc \
+            or (max_val_acc == cur_acc and min_loss > cur_loss):
+        max_val_acc, min_loss = cur_acc, cur_loss
+        print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
+        model.save_model(mymodel,overwrite=True)
