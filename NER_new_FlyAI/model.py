@@ -1,103 +1,102 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @File  : model.py
+# @Author: Zhan
+# @Date  : 8/26/2019
+# @Desc  :
+
 # -*- coding: utf-8 -*
-import numpy
 import os
-import tensorflow as tf
-from flyai.model.base import Base
-from tensorflow.python.saved_model import tag_constants
+
+import keras
+import keras
+from keras.models import Sequential
+from keras.layers import Embedding, Bidirectional, LSTM
+from keras.initializers import constant
+from keras_contrib.layers import CRF
+from keras_contrib.losses import crf_loss
+from keras_contrib.metrics import crf_accuracy
+from keras.optimizers import Adam
 import numpy as np
+from keras.models import save_model, load_model
+from flyai.model.base import Base
+
 from path import MODEL_PATH
-import time
-TENSORFLOW_MODEL_DIR = "best"
+from utils import load_word2vec_embedding
+import config
+
+
+
+KERAS_MODEL_NAME = "my_BiLSTM_CRF.h5"
+
+# 得到训练和测试的数据
+BiRNN_UNITS     = 2 * config.embeddings_size   # 双向RNN每步输出维数(2*单向维数)，  每个RNN(每个time step)输出维数， 设置成和 嵌入维数一样
+EMBED_DIM       = config.embeddings_size      # 默认词向量的大小等于RNN(每个time step) 和 CNN(列) 中神经单元的个数, 为了避免混淆model中全部用unit_num表示。
+TIME_STEP       = config.max_sequence      # 每个句子的最大长度和time_step一样,为了避免混淆model中全部用time_step表示。
+DROPOUT_RATE    = config.dropout
+LEARN_RATE      = config.leanrate
+TAGS_NUM        = config.label_len
+VOCAB_SIZE      = config.vocab_size + 2
+LABEL_DIC       = config.label_dic
 
 
 class Model(Base):
-    def __init__(self, data):
-        self.data = data
+    def create_NER_model(self):
+        ner_model = Sequential()
+        embedding = Embedding(VOCAB_SIZE, EMBED_DIM, mask_zero=False,
+                              embeddings_initializer=constant(load_word2vec_embedding(config.vocab_size)))
+        ner_model.add(embedding)
+        ner_model.add(Bidirectional(LSTM(BiRNN_UNITS // 2, return_sequences=True, dropout=DROPOUT_RATE)))
+        crf = CRF(len(LABEL_DIC), sparse_target=True)
+        ner_model.add(crf)
+        # 以下两种损失和度量写法都可以
+        ner_model.compile(Adam(lr=LEARN_RATE), loss=crf_loss, metrics=[crf_accuracy])
+        # ner_model.compile(Adam(lr=LEARN_RATE), loss=crf.loss_function, metrics=[crf.accuracy])
+        return ner_model
 
-    def predict(self, **data):
-        '''
-        使用模型
-        :param path: 模型所在的路径
-        :param name: 模型的名字
-        :param data: 模型的输入参数
-        :return:
-        '''
-        with tf.Session() as session:
-            tf.saved_model.loader.load(session, [tag_constants.SERVING], os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
-            input_ids = session.graph.get_tensor_by_name(self.get_tensor_name('input'))
-            output = session.graph.get_tensor_by_name(self.get_tensor_name('output'))
-            transition_params = session.graph.get_tensor_by_name(self.get_tensor_name('transition_params'))
-            x_input_ids= self.data.predict_data(**data)
-            tf_unary_scores, tf_transition_params = session.run([output,transition_params], feed_dict={input_ids: x_input_ids})
-            # 把batch那个维度去掉
-            tf_unary_scores = np.squeeze(tf_unary_scores)
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.model_path = os.path.join(MODEL_PATH, KERAS_MODEL_NAME)
+        self.ner_model = self.create_NER_model()
+        if os.path.isfile(self.model_path):
+            self.ner_model.load_weights(self.model_path)
 
-            viterbi_sequence, _ = tf.contrib.crf.viterbi_decode(
-                tf_unary_scores, tf_transition_params)
-            return self.data.to_categorys(viterbi_sequence)
+    '''
+    评估一条数据
+    '''
+    def predict(self,load_weights = False, **data,):
+        if load_weights:
+            self.ner_model.load_weights(self.model_path)
+        # 获取需要预测的图像数据， predict_data 方法默认会去调用 processor.py 中的 input_x 方法
+        x_data = self.dataset.predict_data(**data)
+        word_num = x_data.shape[1]
+        x_data = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_data])
 
+        predict = self.ner_model.predict(x_data)
+        # 将预测数据转换成对应标签  to_categorys 会去调用 processor.py 中的 output_y 方法
+        prediction = self.dataset.to_categorys(np.argmax(predict[0][:word_num],axis=-1))
+        return prediction
+
+    '''
+    评估的时候会调用该方法实现评估得分
+    '''
 
     def predict_all(self, datas):
-        with tf.Session() as session:
-            tf.saved_model.loader.load(session, [tag_constants.SERVING], os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR))
-            input_ids = session.graph.get_tensor_by_name(self.get_tensor_name('input'))
-            output = session.graph.get_tensor_by_name(self.get_tensor_name('output'))
-            transition_params = session.graph.get_tensor_by_name(self.get_tensor_name('transition_params'))
-            ratings = []
-            for data in datas:
-                x_input_ids = self.data.predict_data(**data)
-                tf_unary_scores, tf_transition_params = session.run([output, transition_params],
-                                                                    feed_dict={input_ids: x_input_ids})
-                # 把batch那个维度去掉
-                tf_unary_scores = np.squeeze(tf_unary_scores)
+        self.ner_model.load_weights(self.model_path)
+        predictions = []
+        for data in datas:
+            prediction = self.predict(**data)
+            predictions.append(prediction)
+        return predictions
 
-                viterbi_sequence, _ = tf.contrib.crf.viterbi_decode(
-                    tf_unary_scores, tf_transition_params)
-                ratings.append( self.data.to_categorys(viterbi_sequence))
-        return ratings
+    '''
+    保存模型的方法
+    '''
+    def save_model(self, model, overwrite=False):
+        super().save_model(model, MODEL_PATH, KERAS_MODEL_NAME, overwrite)
+        ### 加入模型保存代码
+        if not os.path.exists(MODEL_PATH):
+            os.makedirs(MODEL_PATH)
+        model.save_weights(self.model_path)
+        # save_model(model,self.model_path, overwrite, include_optimizer=False)
 
-    def save_model(self, session, path, name=TENSORFLOW_MODEL_DIR, overwrite=False):
-        '''
-        保存模型
-        :param session: 训练模型的sessopm
-        :param path: 要保存模型的路径
-        :param name: 要保存模型的名字
-        :param overwrite: 是否覆盖当前模型
-        :return:
-        '''
-        if overwrite:
-            self.delete_file(path)
-
-        builder = tf.saved_model.builder.SavedModelBuilder(os.path.join(path, name))
-        builder.add_meta_graph_and_variables(session, [tf.saved_model.tag_constants.SERVING])
-        builder.save()
-
-    def batch_iter(self, x, y, batch_size=128):
-        '''
-        生成批次数据
-        :param x: 所有验证数据x
-        :param y: 所有验证数据y
-        :param batch_size: 每批的大小
-        :return: 返回分好批次的数据
-        '''
-        data_len = len(x)
-        num_batch = int((data_len - 1) / batch_size) + 1
-
-        indices = numpy.random.permutation(numpy.arange(data_len))
-        x_shuffle = x[indices]
-        y_shuffle = y[indices]
-
-        for i in range(num_batch):
-            start_id = i * batch_size
-            end_id = min((i + 1) * batch_size, data_len)
-            yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
-
-    def get_tensor_name(self, name):
-        return name + ":0"
-
-    def delete_file(self, path):
-        for root, dirs, files in os.walk(path, topdown=False):
-            for name in files:
-                os.remove(os.path.join(root, name))
-            for name in dirs:
-                os.rmdir(os.path.join(root, name))

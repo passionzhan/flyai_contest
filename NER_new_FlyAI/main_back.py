@@ -3,7 +3,7 @@ import argparse
 from flyai.dataset import Dataset
 from tensorflow.contrib.rnn import DropoutWrapper
 import tensorflow as tf
-from model import Model
+from model_back import Model
 from path import MODEL_PATH, LOG_PATH
 import config
 from utils import load_word2vec_embedding
