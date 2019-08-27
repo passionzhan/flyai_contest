@@ -76,7 +76,7 @@ predictions      = Dense(n_classes, activation='softmax')(fc1)
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.00037,),
+                    optimizer=keras.optimizers.Adam(lr=0.00019,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
