@@ -50,7 +50,7 @@ class Model(Base):
         crf = CRF(len(LABEL_DIC), sparse_target=True)
         ner_model.add(crf)
         # 以下两种损失和度量写法都可以
-        ner_model.compile(Adam(lr=LEARN_RATE), loss=crf_loss, metrics=[crf_accuracy])
+        ner_model.compile(Adam(lr=LEARN_RATE,), loss=crf_loss, metrics=[crf_accuracy])
         # ner_model.compile(Adam(lr=LEARN_RATE), loss=crf.loss_function, metrics=[crf.accuracy])
         return ner_model
 

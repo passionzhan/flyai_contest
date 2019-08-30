@@ -2,3 +2,4 @@ flyai
 numpy
 tensorflow
 keras==2.1.4
+keras_contrib

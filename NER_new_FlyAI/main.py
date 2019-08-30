@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*
 import argparse
 from functools import reduce
+import math
+import os
 
 import numpy as np
+from numpy import random
 from flyai.dataset import Dataset
 import keras
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 from flyai.utils import remote_helper
 
 from model import Model
 import config
+from path import MODEL_PATH
 
 # 超参
 parser = argparse.ArgumentParser()
@@ -42,33 +47,89 @@ TAGS_NUM        = config.label_len
 ner_model = model.ner_model
 ner_model.summary()
 
-max_val_acc, min_loss = 0, float('inf')
-for i in range(dataset.get_step()):
-    x_train, y_train = dataset.next_train_batch()
-    # padding
-    x_train = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_train])
-    y_train = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_train])
-    y_train = y_train.reshape(y_train.shape[0],y_train.shape[1],1)
-    ner_model.train_on_batch(x_train,y_train)
 
-    if i % 50 == 0 or i == dataset.get_step() - 1:
+x_train,y_train,x_val,y_val = dataset.get_all_processor_data()
+x_data = np.concatenate((x_train,x_val))
+y_data = np.concatenate((y_train,y_val))
+val_ratio = 0.1
+train_len = int(x_data.shape[0]*(1-val_ratio))
+x_train = x_data[0:train_len]
+y_train = y_data[0:train_len]
+x_val = x_data[train_len:]
+y_val = y_data[train_len:]
 
-        x_val, y_val = dataset.next_validation_batch()
-        # padding
-        x_val = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_val])
-        y_val = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_val])
-        y_val = y_train.reshape(y_val.shape[0], y_val.shape[1], 1)
-        val_loss_and_metrics = ner_model.evaluate(x_val, y_val, verbose=0)
-        cur_loss = val_loss_and_metrics[0]
-        cur_acc = val_loss_and_metrics[1]
+def gen_batch_data(x,y,batch_size):
+    '''
+    批数据生成器
+    :param x:
+    :param y:
+    :param batch_size:
+    :return:
+    '''
+    indices = np.arange(x.shape[0])
+    random.shuffle(indices)
+    i = 0
+    while True:
+        bi = i*batch_size
+        ei = min(i*batch_size + batch_size,len(indices)-1)
+        if ei == len(indices) - 1:
+            i = 0
+        x_train = x[indices[bi:ei]]
+        y_train = y[indices[bi:ei]]
+        x_train = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_train])
+        y_train = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_train])
+        y_train = y_train.reshape(y_train.shape[0], y_train.shape[1], 1)
+        yield x_train,y_train
+
+steps_per_epoch = math.ceil(train_len / args.BATCH)
+print("real number of train examples:%d" % train_len)
+print("real number of validation examples:%d" % x_val.shape[0])
+print("steps_per_epoch:%d" % steps_per_epoch)
+
+train_gen   = gen_batch_data(x_train,y_train,args.BATCH)
+val_gen     = gen_batch_data(x_val,y_val,args.BATCH)
 
 
-        print('step: %d/%d, val_loss: %f， val_acc: %f'
-              % (i + 1, dataset.get_step(), cur_loss, cur_acc,))
-        # val_loss_and_metrics[1],))
+checkpoint = ModelCheckpoint(model.model_path,
+                             monitor='val_crf_accuracy',
+                             save_best_only=True,
+                             save_weights_only=True,
+                             verbose=1,
+                             mode='max')
+earlystop = EarlyStopping(patience=10,)
 
-        if max_val_acc < cur_acc \
-                or (max_val_acc == cur_acc and min_loss > cur_loss):
-            max_val_acc, min_loss = cur_acc, cur_loss
-            print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
-            model.save_model(ner_model, overwrite=True)
+if not os.path.exists(MODEL_PATH):
+    os.makedirs(MODEL_PATH)
+ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
+                        epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 5,
+                        callbacks= [checkpoint,earlystop])
+
+
+# # max_val_acc, min_loss = 0, float('inf')
+# for i in range(dataset.get_step()):
+#     x_train, y_train = dataset.next_train_batch()
+#     # padding
+#
+#     ner_model.train_on_batch(x_train,y_train)
+#
+#     if i % 50 == 0 or i == dataset.get_step() - 1:
+#
+#         x_val, y_val = dataset.next_validation_batch()
+#         # padding
+#         x_val = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_val])
+#         y_val = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_val])
+#         y_val = y_train.reshape(y_val.shape[0], y_val.shape[1], 1)
+#         val_loss_and_metrics = ner_model.evaluate(x_val, y_val, verbose=0)
+#         cur_loss = val_loss_and_metrics[0]
+#         cur_acc = val_loss_and_metrics[1]
+#
+#
+#         print('step: %d/%d, val_loss: %f， val_acc: %f'
+#               % (i + 1, dataset.get_step(), cur_loss, cur_acc,))
+#         # val_loss_and_metrics[1],))
+#
+#         if max_val_acc < cur_acc \
+#                 or (max_val_acc == cur_acc and min_loss > cur_loss):
+#             max_val_acc, min_loss = cur_acc, cur_loss
+#             print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
+#             model.save_model(ner_model, overwrite=True)

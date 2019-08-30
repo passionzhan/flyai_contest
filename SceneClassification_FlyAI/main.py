@@ -12,7 +12,7 @@ from flyai.utils import remote_helper
 from flyai.dataset import Dataset
 import keras
 import numpy as np
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
 from keras import models
 from keras.metrics import categorical_accuracy
 from keras.preprocessing.image import ImageDataGenerator
@@ -71,12 +71,13 @@ kwargs = {'backend':keras.backend,
 densenet201     = DenseNet201(include_top=False, weights=None, pooling='avg', **kwargs)
 features        = densenet201.output
 fc1             = Dense(fc1_dim, activation='relu',)(features)
-predictions      = Dense(n_classes, activation='softmax')(fc1)
+fc1_D           = Dropout(0.10,)(fc1)
+predictions     = Dense(n_classes, activation='softmax')(fc1_D)
 
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.00017,),
+                    optimizer=keras.optimizers.Adam(lr=0.00009,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
@@ -104,8 +105,8 @@ for i in range(dataset.get_step() // RATIO):
         x_train_big, y_train_big = dataset.next_train_batch()
 
         #  数据增强器
-        imageGen = ImageDataGenerator(horizontal_flip=True, vertical_flip=True,
-                                      rotation_range=10,)
+        imageGen = ImageDataGenerator(horizontal_flip=True, zoom_range=[0.7, 1.3],
+                                      rotation_range=45,)
         small_step = 0
         batch_size_small_train = 32
         for x_train_small, y_train_small in imageGen.flow(x_train_big, y_train_big,
