@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*
 import argparse
-from functools import reduce
 import math
 import os
 
 import numpy as np
 from numpy import random
 from flyai.dataset import Dataset
-import keras
 from keras.callbacks import ModelCheckpoint, EarlyStopping
-from flyai.utils import remote_helper
 
 from model import Model
 import config
@@ -17,8 +14,8 @@ from path import MODEL_PATH
 
 # 超参
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=2, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=5, type=int, help="batch size")
+parser.add_argument("-e", "--EPOCHS", default=16, type=int, help="train epochs")
+parser.add_argument("-b", "--BATCH", default=64, type=int, help="batch size")
 args = parser.parse_args()
 # 数据获取辅助类
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=args.BATCH)
@@ -58,6 +55,7 @@ y_train = y_data[0:train_len]
 x_val = x_data[train_len:]
 y_val = y_data[train_len:]
 
+# print('x_train')
 def gen_batch_data(x,y,batch_size):
     '''
     批数据生成器
@@ -68,18 +66,27 @@ def gen_batch_data(x,y,batch_size):
     '''
     indices = np.arange(x.shape[0])
     random.shuffle(indices)
+    x = x[indices]
+    y = y[indices]
     i = 0
     while True:
         bi = i*batch_size
         ei = min(i*batch_size + batch_size,len(indices)-1)
         if ei == len(indices) - 1:
             i = 0
-        x_train = x[indices[bi:ei]]
-        y_train = y[indices[bi:ei]]
-        x_train = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_train])
-        y_train = np.asarray([list(y[:]) + (TIME_STEP - len(y)) * [TAGS_NUM - 1] for y in y_train])
-        y_train = y_train.reshape(y_train.shape[0], y_train.shape[1], 1)
-        yield x_train,y_train
+        else:
+            i += 1
+        x_batch = x[bi:ei]
+        y_batch = y[bi:ei]
+
+        x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - len(x_smp)) * [config.src_padding] for x_smp in x_batch])
+        y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - len(y_smp)) * [TAGS_NUM - 1] for y_smp in y_batch])
+        # print(flag + 'x_batch:')
+        # print(x_batch.shape)
+        # print(flag + 'y_batch:')
+        # print(y_batch.shape)
+        y_batch = y_batch.reshape(y_batch.shape[0], y_batch.shape[1], 1)
+        yield x_batch, y_batch
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 print("real number of train examples:%d" % train_len)
@@ -102,7 +109,7 @@ if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
                         epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 5,
-                        callbacks= [checkpoint,earlystop])
+                        callbacks=[checkpoint, earlystop])
 
 
 # # max_val_acc, min_loss = 0, float('inf')

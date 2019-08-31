@@ -1,4 +1,4 @@
 flyai
 numpy
+Pillow
 tensorflow
-keras==2.1.4

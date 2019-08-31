@@ -9,16 +9,14 @@
 import os
 
 import keras
-import keras
 from keras.models import Sequential
 from keras.layers import Embedding, Bidirectional, LSTM
 from keras.initializers import constant
-from keras_contrib.layers import CRF
-from keras_contrib.losses import crf_loss
-from keras_contrib.metrics import crf_accuracy
+from crf import CRF
+from crf_losses import crf_loss
+from crf_accuracies import crf_accuracy
 from keras.optimizers import Adam
 import numpy as np
-from keras.models import save_model, load_model
 from flyai.model.base import Base
 
 from path import MODEL_PATH
@@ -59,12 +57,14 @@ class Model(Base):
         self.model_path = os.path.join(MODEL_PATH, KERAS_MODEL_NAME)
         self.ner_model = self.create_NER_model()
         if os.path.isfile(self.model_path):
+            print('加载训练好的模型：')
             self.ner_model.load_weights(self.model_path)
+            print('加载训练好的模型结束')
 
     '''
     评估一条数据
     '''
-    def predict(self,load_weights = False, **data,):
+    def predict(self,load_weights = False, **data):
         if load_weights:
             self.ner_model.load_weights(self.model_path)
         # 获取需要预测的图像数据， predict_data 方法默认会去调用 processor.py 中的 input_x 方法
