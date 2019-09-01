@@ -10,7 +10,7 @@ import os
 
 import keras
 from keras.models import Sequential
-from keras.layers import Embedding, Bidirectional, LSTM
+from keras.layers import Embedding, Bidirectional, LSTM, Masking
 from keras.initializers import constant
 from crf import CRF
 from crf_losses import crf_loss
@@ -44,6 +44,7 @@ class Model(Base):
         embedding = Embedding(VOCAB_SIZE, EMBED_DIM, mask_zero=False,
                               embeddings_initializer=constant(load_word2vec_embedding(config.vocab_size)))
         ner_model.add(embedding)
+        ner_model.add(Masking(mask_value=config.src_padding,))
         ner_model.add(Bidirectional(LSTM(BiRNN_UNITS // 2, return_sequences=True, dropout=DROPOUT_RATE)))
         crf = CRF(len(LABEL_DIC), sparse_target=True)
         ner_model.add(crf)
