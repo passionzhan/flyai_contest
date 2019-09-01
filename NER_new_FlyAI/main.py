@@ -71,14 +71,16 @@ def gen_batch_data(x,y,batch_size):
     i = 0
     while True:
         bi = i*batch_size
-        ei = min(i*batch_size + batch_size,len(indices)-1)
-        if ei == len(indices) - 1:
+        ei = min(i*batch_size + batch_size,len(indices))
+        if ei == len(indices):
             i = 0
         else:
             i += 1
         x_batch = x[bi:ei]
         y_batch = y[bi:ei]
 
+        # print('bi %d:' % bi)
+        # print('ei %d:' % ei)
         x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - len(x_smp)) * [config.src_padding] for x_smp in x_batch])
         y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - len(y_smp)) * [TAGS_NUM - 1] for y_smp in y_batch])
         # print(flag + 'x_batch:')
