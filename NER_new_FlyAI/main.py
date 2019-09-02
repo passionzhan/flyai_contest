@@ -55,6 +55,14 @@ y_train = y_data[0:train_len]
 x_val = x_data[train_len:]
 y_val = y_data[train_len:]
 
+# for i in range(x_data.shape[0]):
+#     print('%dth train sample x:' % i)
+#     print(x_data[i])
+#
+# for i in range(y_data.shape[0]):
+#     print('%dth train sample y:' % i)
+#     print(y_data[i])
+
 # print('x_train')
 def gen_batch_data(x,y,batch_size):
     '''
@@ -78,11 +86,11 @@ def gen_batch_data(x,y,batch_size):
             i += 1
         x_batch = x[bi:ei]
         y_batch = y[bi:ei]
-        max_seq_length = max(map(len, x_batch))
+        # max_seq_length = max(map(len, x_batch))
         # print('bi %d:' % bi)
         # print('ei %d:' % ei)
-        x_batch = np.asarray([list(x_smp[:]) + (max_seq_length - len(x_smp)) * [config.src_padding] for x_smp in x_batch])
-        y_batch = np.asarray([list(y_smp[:]) + (max_seq_length - len(y_smp)) * [TAGS_NUM - 1] for y_smp in y_batch])
+        x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - len(x_smp)) * [config.src_padding] for x_smp in x_batch])
+        y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - len(y_smp)) * [TAGS_NUM - 1] for y_smp in y_batch])
         # print(flag + 'x_batch:')
         # print(x_batch.shape)
         # print(flag + 'y_batch:')
