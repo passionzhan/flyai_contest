@@ -45,23 +45,15 @@ ner_model = model.ner_model
 ner_model.summary()
 
 
-x_train,y_train,x_val,y_val = dataset.get_all_processor_data()
-x_data = np.concatenate((x_train,x_val))
-y_data = np.concatenate((y_train,y_val))
+x_t,y_t,x_v,y_v = dataset.get_all_processor_data()
+x_data = np.concatenate((x_t,x_v))
+y_data = np.concatenate((y_t,y_v))
 val_ratio = 0.1
 train_len = int(x_data.shape[0]*(1-val_ratio))
 x_train = x_data[0:train_len]
 y_train = y_data[0:train_len]
 x_val = x_data[train_len:]
 y_val = y_data[train_len:]
-
-# for i in range(x_data.shape[0]):
-#     print('%dth train sample x:' % i)
-#     print(x_data[i])
-#
-# for i in range(y_data.shape[0]):
-#     print('%dth train sample y:' % i)
-#     print(y_data[i])
 
 # print('x_train')
 def gen_batch_data(x,y,batch_size):
@@ -84,19 +76,28 @@ def gen_batch_data(x,y,batch_size):
             i = 0
         else:
             i += 1
-        x_batch = x[bi:ei]
-        y_batch = y[bi:ei]
-        # max_seq_length = max(map(len, x_batch))
+        x_data = x[bi:ei]
+        y_data = y[bi:ei]
+        # max_seq_length = max(map(len, x_data))
         # print('bi %d:' % bi)
         # print('ei %d:' % ei)
-        x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - len(x_smp)) * [config.src_padding] for x_smp in x_batch])
-        y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - len(y_smp)) * [TAGS_NUM - 1] for y_smp in y_batch])
-        # print(flag + 'x_batch:')
+        # if x_smp.shape[0] < TIME_STEP:
+        x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - x_smp.shape[0]) * [config.src_padding] if x_smp.shape[0]<TIME_STEP else
+                              list(x_smp[:])[0:TIME_STEP] for x_smp in x_data])
+        y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - y_smp.shape[0]) * [TAGS_NUM - 1] if y_smp.shape[0]<TIME_STEP else
+                              list(y_smp[:])[0:TIME_STEP] for y_smp in y_data])
+
+        # else:
+
+        # print('x_batch:')
         # print(x_batch.shape)
-        # print(flag + 'y_batch:')
+        # print('y_batch:')
         # print(y_batch.shape)
-        y_batch = y_batch.reshape(y_batch.shape[0], y_batch.shape[1], 1)
+        tmpShape = y_batch.shape
+        y_batch = y_batch.reshape((tmpShape[0], tmpShape[1], 1))
         yield x_batch, y_batch
+
+
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 print("real number of train examples:%d" % train_len)
@@ -107,6 +108,12 @@ train_gen   = gen_batch_data(x_train,y_train,args.BATCH)
 val_gen     = gen_batch_data(x_val,y_val,args.BATCH)
 
 
+# checkpoint = ModelCheckpoint(model.model_path,
+#                              monitor='train_loss',
+#                              save_best_only=True,
+#                              save_weights_only=True,
+#                              verbose=1,
+#                              mode='max')
 checkpoint = ModelCheckpoint(model.model_path,
                              monitor='val_crf_accuracy',
                              save_best_only=True,
@@ -117,10 +124,13 @@ earlystop = EarlyStopping(patience=10,)
 
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
+# ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
+#                         epochs=args.EPOCHS,
+#                         callbacks=[checkpoint, earlystop])
+
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
                         epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 5,
                         callbacks=[checkpoint, earlystop])
-
 
 # # max_val_acc, min_loss = 0, float('inf')
 # for i in range(dataset.get_step()):
