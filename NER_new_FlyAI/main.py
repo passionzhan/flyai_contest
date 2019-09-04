@@ -11,7 +11,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 from model import Model
 import config
 from path import MODEL_PATH
-
+from utilities import data_split
 # 超参
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--EPOCHS", default=16, type=int, help="train epochs")
@@ -44,16 +44,12 @@ TAGS_NUM        = config.label_len
 ner_model = model.ner_model
 ner_model.summary()
 
-
-x_t,y_t,x_v,y_v = dataset.get_all_processor_data()
-x_data = np.concatenate((x_t,x_v))
-y_data = np.concatenate((y_t,y_v))
-val_ratio = 0.1
-train_len = int(x_data.shape[0]*(1-val_ratio))
-x_train = x_data[0:train_len]
-y_train = y_data[0:train_len]
-x_val = x_data[train_len:]
-y_val = y_data[train_len:]
+x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
+x_train     = dataset.processor_x(x_train)
+x_val       = dataset.processor_x(x_val)
+y_train     = dataset.processor_y(y_train)
+y_val       = dataset.processor_y(y_val)
+train_len   = x_train.shape[0]
 
 # print('x_train')
 def gen_batch_data(x,y,batch_size):
@@ -96,7 +92,6 @@ def gen_batch_data(x,y,batch_size):
         tmpShape = y_batch.shape
         y_batch = y_batch.reshape((tmpShape[0], tmpShape[1], 1))
         yield x_batch, y_batch
-
 
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)

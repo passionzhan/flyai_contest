@@ -5,20 +5,26 @@
 # @Date  : 8/19/2019
 # @Desc  :
 
-import argparse
+import argparse,os
 from functools import reduce
+from math import pow,ceil
 
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
 import keras
 import numpy as np
+from numpy import random
 from keras.layers import Dense, Dropout
 from keras import models
 from keras.metrics import categorical_accuracy
 from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
 from keras.utils import plot_model
 from keras_applications.densenet import DenseNet201, preprocess_input
+
 from model import Model
+from utilities import data_split
+from path import MODEL_PATH
 
 # 获取预训练模型路径
 # path = remote_helper.get_remote_date("https://www.flyai.com/m/v0.2|resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5")
@@ -77,7 +83,7 @@ predictions     = Dense(n_classes, activation='softmax')(fc1_D)
 mymodel         = models.Model(inputs=densenet201.input, outputs=predictions)
 
 mymodel.compile(loss='categorical_crossentropy',
-                    optimizer=keras.optimizers.Adam(lr=0.00009,),
+                    optimizer=keras.optimizers.Adam(lr=0.001,),
                     metrics=[categorical_accuracy])
 
 # region 打印模型信息
@@ -90,108 +96,54 @@ print('load pretrain model...')
 densenet201.load_weights(path)
 print('load done !!!')
 
-max_val_acc = 0
-min_loss = float('inf')
-iCount = 0
+x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
+train_len   = x_train.shape[0]
 
-RATIO = 10
-for i in range(dataset.get_step() // RATIO):
+def gen_batch_data(dataset, x, y, batch_size):
     '''
-    获取 args.BATCH 数据量，准备设置为 2560,实际最大只能256，
-    加循环迭代10次,保证用于训练的验证集中数据和训练集中
-    数据训练次数大体一致 
+    批数据生成器
+    :param x:
+    :param y:
+    :param batch_size:
+    :return:
     '''
-    for i_in in range(RATIO):
-        x_train_big, y_train_big = dataset.next_train_batch()
+    indices = np.arange(x.shape[0])
+    random.shuffle(indices)
+    x = x[indices]
+    y = y[indices]
+    i = 0
+    while True:
+        bi = i*batch_size
+        ei = min(i*batch_size + batch_size,len(indices))
+        if ei == len(indices):
+            i = 0
+        else:
+            i += 1
+        x_data = x[bi:ei]
+        y_data = y[bi:ei]
+        x_batch = dataset.processor_x(x_data)
+        y_batch = dataset.processor_y(y_data)
+        yield x_batch, y_batch
 
-        #  数据增强器
-        imageGen = ImageDataGenerator(horizontal_flip=True, zoom_range=[0.7, 1.3],
-                                      rotation_range=45,)
-        small_step = 0
-        batch_size_small_train = 32
-        for x_train_small, y_train_small in imageGen.flow(x_train_big, y_train_big,
-                                                          batch_size=batch_size_small_train):
-            x_train_small = preprocess_input(x_train_small, **kwargs)
-            train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
-            small_step += 1
-            # 保证扩充数量不超过此批数据的1倍
-            if small_step > 1 * (x_train_big.shape[0] / batch_size_small_train):
-                if (i_in + 1) % 5 == 0:   # 减少打印次数。
-                    print('step: %d/%d, train_loss: %f， train_acc: %f, '
-                          % (i + 1, dataset.get_step() // RATIO, train_loss_and_metrics[0],
-                             train_loss_and_metrics[1]))
-                break
+checkpoint = ModelCheckpoint(model.model_path,
+                             monitor='val_categorical_accuracy',
+                             save_best_only=True,
+                             save_weights_only=False,
+                             verbose=1,
+                             mode='max',
+                             period=1,)
+earlystop = EarlyStopping(patience=5,)
+lrs = LearningRateScheduler(lambda epoche, lr: pow(0.9,epoche)*lr, verbose=1)
+cbs = [checkpoint, earlystop, lrs]
 
-    # args.BATCH  准备设为 2560
-    iter_num = dataset.get_validation_length()//6
-    # 直接丢弃不够一次循环的验证数据
-    # if iCount + 144 > iter_num:
-    #     for iLoop in range(iCount+1,int(iter_num+1)):
-    #         dataset.next_validation_batch()
-    #     iCount = 0
-    #     continue
+train_generator = gen_batch_data(dataset,x_train,y_train,args.BATCH)
+val_generator   = gen_batch_data(dataset,x_val,y_val,args.BATCH)
 
+steps_per_epoch = ceil(train_len / 100 * args.BATCH)
+# steps_per_epoch =
+if not os.path.exists(MODEL_PATH):
+    os.makedirs(MODEL_PATH)
 
-    #最后一批验证数据为了代码简洁，全部用来训练
-    overFlag = False
-    if iCount + 144 > iter_num:
-        extra_batch_num = iter_num - iCount
-        overFlag = True
-    else:
-        extra_batch_num = 18*6
-
-    extra_x_train = np.zeros(shape=(6*extra_batch_num,224,224,3), dtype=np.uint8)
-    extra_y_train = np.zeros(shape=(6*extra_batch_num,n_classes), dtype=np.uint8)
-
-    for iLoop in range(extra_batch_num):
-        x_val, y_val = dataset.next_validation_batch()
-        iCount += 1
-        for ii in range(x_val.shape[0]):
-            extra_x_train[ii + iLoop * 6] = x_val[ii]
-            extra_y_train[ii + iLoop * 6] = y_val[ii]
-
-    small_step = 0
-    batch_size_small_val = 36
-    for x_train_small, y_train_small in imageGen.flow(extra_x_train,extra_y_train,batch_size=batch_size_small_val):
-        x_train_small = preprocess_input(x_train_small, **kwargs)
-        train_loss_and_metrics = mymodel.train_on_batch(x_train_small, y_train_small)
-        small_step += 1
-        # 保证扩充数量不超过此批数据的1倍
-        if small_step > 1 * (extra_x_train.shape[0] / batch_size_small_val):
-            print('step: %d/%d, train_loss: %f， train_acc: %f, '
-                  % (i + 1, dataset.get_step() // RATIO, train_loss_and_metrics[0],
-                     train_loss_and_metrics[1]))
-            break
-
-    #  最后一批，没有数据进行验证，直接进入下一轮迭代，保证验证集中用于训练和验证的数据固定也不交叉。
-    if overFlag:
-        iCount = 0
-        continue
-
-    val_acc = []
-    val_loss = []
-    for iLoop in range(6 * 6):
-        # 此处获取的x_val样本数为dataset 的 val_batch == 6
-        x_val, y_val = dataset.next_validation_batch()
-        iCount += 1
-        x_val = preprocess_input(x_val, **kwargs)
-        val_loss_and_metrics = mymodel.evaluate(x_val, y_val,verbose=0)
-        val_loss.append(val_loss_and_metrics[0])
-        val_acc.append(val_loss_and_metrics[1])
-
-    cur_acc = reduce(lambda x, y: x + y, val_acc) / len(val_acc)
-    cur_loss = reduce(lambda x, y: x + y, val_loss) / len(val_loss)
-
-    # 最后一个批次，迭代次数置0,
-    if iCount == iter_num:
-        iCount = 0
-
-    print('step: %d/%d, val_loss: %f， val_acc: %f'
-          % (i + 1, dataset.get_step() // RATIO, cur_loss, cur_acc,))
-             # val_loss_and_metrics[1],))
-
-    if max_val_acc < cur_acc \
-            or (max_val_acc == cur_acc and min_loss > cur_loss):
-        max_val_acc, min_loss = cur_acc, cur_loss
-        print('max_acc: %f, min_loss: %f' % (max_val_acc, min_loss))
-        model.save_model(mymodel,overwrite=True)
+mymodel.fit_generator(generator=train_generator, steps_per_epoch=100 * steps_per_epoch,
+                        epochs=100 *args.EPOCHS,validation_data=val_generator, validation_steps= 50,
+                        callbacks=cbs)

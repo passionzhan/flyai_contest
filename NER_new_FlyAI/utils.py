@@ -4,8 +4,6 @@ import config
 import tensorflow as tf
 
 
-
-
 def load_word2vec_embedding(vocab_size):
     '''
         加载外接的词向量。
