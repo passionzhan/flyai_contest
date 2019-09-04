@@ -7,7 +7,7 @@
 
 import argparse,os
 from functools import reduce
-from math import pow,ceil
+from math import pow,ceil,floor
 
 from flyai.utils import remote_helper
 from flyai.dataset import Dataset
@@ -132,8 +132,8 @@ checkpoint = ModelCheckpoint(model.model_path,
                              verbose=1,
                              mode='max',
                              period=1,)
-earlystop = EarlyStopping(patience=5,)
-lrs = LearningRateScheduler(lambda epoche, lr: pow(0.9,epoche)*lr, verbose=1)
+earlystop = EarlyStopping(monitor='val_categorical_accuracy', verbose=1, patience=10,)
+lrs = LearningRateScheduler(lambda epoche, lr: pow(0.9,epoche//50)*lr, verbose=1)
 cbs = [checkpoint, earlystop, lrs]
 
 train_generator = gen_batch_data(dataset,x_train,y_train,args.BATCH)
@@ -145,5 +145,6 @@ if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
 mymodel.fit_generator(generator=train_generator, steps_per_epoch=steps_per_epoch,
-                        epochs=100 *args.EPOCHS,validation_data=val_generator, validation_steps= 50,
-                        callbacks=cbs)
+                      epochs=(100 * args.EPOCHS), validation_data=val_generator,
+                      validation_steps=25,verbose=1,
+                      validation_freq=1, callbacks=cbs)
