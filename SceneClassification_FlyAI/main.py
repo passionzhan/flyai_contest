@@ -139,11 +139,11 @@ cbs = [checkpoint, earlystop, lrs]
 train_generator = gen_batch_data(dataset,x_train,y_train,args.BATCH)
 val_generator   = gen_batch_data(dataset,x_val,y_val,args.BATCH)
 
-steps_per_epoch = ceil(train_len / 100 * args.BATCH)
+steps_per_epoch = ceil(train_len / (100 * args.BATCH))
 # steps_per_epoch =
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
-mymodel.fit_generator(generator=train_generator, steps_per_epoch=100 * steps_per_epoch,
+mymodel.fit_generator(generator=train_generator, steps_per_epoch=steps_per_epoch,
                         epochs=100 *args.EPOCHS,validation_data=val_generator, validation_steps= 50,
                         callbacks=cbs)
