@@ -74,21 +74,19 @@ def gen_batch_data(x,y,batch_size):
             i += 1
         x_data = x[bi:ei]
         y_data = y[bi:ei]
-        # max_seq_length = max(map(len, x_data))
+        max_seq_length = max(map(len, x_data))
         # print('bi %d:' % bi)
         # print('ei %d:' % ei)
         # if x_smp.shape[0] < TIME_STEP:
-        x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - x_smp.shape[0]) * [config.src_padding] if x_smp.shape[0]<TIME_STEP else
-                              list(x_smp[:])[0:TIME_STEP] for x_smp in x_data])
-        y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - y_smp.shape[0]) * [TAGS_NUM - 1] if y_smp.shape[0]<TIME_STEP else
-                              list(y_smp[:])[0:TIME_STEP] for y_smp in y_data])
+        # x_batch = np.asarray([list(x_smp[:]) + (TIME_STEP - x_smp.shape[0]) * [config.src_padding] if x_smp.shape[0]<TIME_STEP else
+        #                       list(x_smp[:])[0:TIME_STEP] for x_smp in x_data])
+        # y_batch = np.asarray([list(y_smp[:]) + (TIME_STEP - y_smp.shape[0]) * [TAGS_NUM - 1] if y_smp.shape[0]<TIME_STEP else
+        #                       list(y_smp[:])[0:TIME_STEP] for y_smp in y_data])
 
-        # else:
+        # Embedding 层 mask_zero = True，所以 x 用 0 补齐
+        x_batch = np.asarray([list(x_smp[:]) + (max_seq_length - x_smp.shape[0]) * [0] for x_smp in x_data])
+        y_batch = np.asarray([list(y_smp[:]) + (max_seq_length - y_smp.shape[0]) * [TAGS_NUM - 1] for y_smp in y_data])
 
-        # print('x_batch:')
-        # print(x_batch.shape)
-        # print('y_batch:')
-        # print(y_batch.shape)
         tmpShape = y_batch.shape
         y_batch = y_batch.reshape((tmpShape[0], tmpShape[1], 1))
         yield x_batch, y_batch

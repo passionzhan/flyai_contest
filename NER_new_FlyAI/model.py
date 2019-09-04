@@ -41,7 +41,11 @@ LABEL_DIC       = config.label_dic
 class Model(Base):
     def create_NER_model(self):
         ner_model = Sequential()
-        embedding = Embedding(VOCAB_SIZE, EMBED_DIM, mask_zero=False,
+        # keras_contrib 2.0.8, keras 2.2.5,下 当mmask_zero=True 会报
+        # Tensors in list passed to 'values' of 'ConcatV2' Op have types [bool, float32] that don't all match.`
+        # 错误。
+        # 改成keras 2.2.4 解决
+        embedding = Embedding(VOCAB_SIZE + 1, EMBED_DIM, mask_zero=True,
                               embeddings_initializer=constant(load_word2vec_embedding(config.vocab_size)))
         ner_model.add(embedding)
         # ner_model.add(Masking(mask_value=config.src_padding,))
@@ -49,7 +53,7 @@ class Model(Base):
         crf = CRF(len(LABEL_DIC), sparse_target=True)
         ner_model.add(crf)
         # 以下两种损失和度量写法都可以
-        ner_model.compile(Adam(lr=LEARN_RATE,), loss=crf_loss, metrics=[crf_accuracy])
+        ner_model.compile(Adam(lr=LEARN_RATE,decay=1e-3), loss=crf_loss, metrics=[crf_accuracy])
         # ner_model.compile(Adam(lr=LEARN_RATE), loss=crf.loss_function, metrics=[crf.accuracy])
         return ner_model
 
