@@ -122,7 +122,8 @@ if not os.path.exists(MODEL_PATH):
 #                         callbacks=[checkpoint, earlystop])
 
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
-                        epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 5,
+                        epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 2,
+                        validation_freq=1,
                         callbacks=[checkpoint, earlystop])
 
 # # max_val_acc, min_loss = 0, float('inf')
