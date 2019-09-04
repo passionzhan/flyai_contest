@@ -2,3 +2,4 @@ flyai
 numpy
 Pillow
 tensorflow
+keras

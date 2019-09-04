@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import tensorflow as tf
+from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
+from keras.models import Model
 from flyai.dataset import Dataset
 from model import Model
 from path import MODEL_PATH, LOG_PATH
 from data_helper import *
 from tensorflow.python.layers.core import Dense
 from flyai.utils.log_helper import train_log
+
+
 
 '''
 Tensorflow模版项目下载： https://www.flyai.com/python/tensorflow_template.zip
@@ -53,11 +58,20 @@ rnn_size = 64
 num_layers = 3
 # Embedding Size
 encoding_embedding_size = 64
+eDim =
 decoding_embedding_size = 64
 # Learning Rate
 learning_rate = 0.001
+DROPOUT_RATE = 0.2
 
-
+def create_model():
+    x_input = Input(shape=(None,eDim),dtype='int32',name='x_input')
+    x = Embedding(output_dim=512, mask_zero=True,)(x_input)
+    x = Bidirectional(LSTM(eDim, return_sequences=False, dropout=DROPOUT_RATE))(x)
+    x_input = Input(shape=(None, eDim), dtype='int32', name='x_input')
+    y_input = Input(shape=(None, eDim), dtype='int32', name='y_input')
+    y = Embedding(output_dim=512, mask_zero=True,)(y_input)
+    x = Bidirectional(LSTM(eDim, return_sequences=True, dropout=DROPOUT_RATE))(y)
 # 输入层
 def get_inputs():
     inputs = tf.placeholder(tf.int32, [None, None], name='inputs')

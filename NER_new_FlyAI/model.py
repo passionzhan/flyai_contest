@@ -74,8 +74,10 @@ class Model(Base):
             self.ner_model.load_weights(self.model_path)
         # 获取需要预测的图像数据， predict_data 方法默认会去调用 processor.py 中的 input_x 方法
         x_data = self.dataset.predict_data(**data)
-        word_num = x_data.shape[1]
-        x_data = np.asarray([list(x[:]) + (TIME_STEP - len(x)) * [config.src_padding] for x in x_data])
+        word_num = x_data[0].shape[0]
+        # word_num = x_data.shape[1]
+        # word_num
+        x_data = np.asarray([list(x_data[0])])
 
         predict = self.ner_model.predict(x_data)
         # 将预测数据转换成对应标签  to_categorys 会去调用 processor.py 中的 output_y 方法
