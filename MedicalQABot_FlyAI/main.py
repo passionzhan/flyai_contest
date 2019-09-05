@@ -5,6 +5,7 @@ import argparse
 import tensorflow as tf
 from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
 from keras.models import Model
+from keras.optimizers import Adam
 from flyai.dataset import Dataset
 from model import Model
 from path import MODEL_PATH, LOG_PATH
@@ -48,8 +49,8 @@ que_dict, ans_dict = load_dict()
 # ans_dict = que_dict
 # endregion
 
-encoder_vocab_size = len(que_dict)
-decoder_vocab_size = len(ans_dict)
+encode_vocab_size = len(que_dict)
+decode_vocab_size = len(ans_dict)
 # Batch Size,
 batch_size = args.BATCH
 # RNN Size
@@ -58,20 +59,79 @@ rnn_size = 64
 num_layers = 3
 # Embedding Size
 encoding_embedding_size = 64
-eDim =
+eDim = 200
+hide_dim = 512
 decoding_embedding_size = 64
 # Learning Rate
 learning_rate = 0.001
 DROPOUT_RATE = 0.2
 
 def create_model():
-    x_input = Input(shape=(None,eDim),dtype='int32',name='x_input')
-    x = Embedding(output_dim=512, mask_zero=True,)(x_input)
-    x = Bidirectional(LSTM(eDim, return_sequences=False, dropout=DROPOUT_RATE))(x)
-    x_input = Input(shape=(None, eDim), dtype='int32', name='x_input')
-    y_input = Input(shape=(None, eDim), dtype='int32', name='y_input')
-    y = Embedding(output_dim=512, mask_zero=True,)(y_input)
-    x = Bidirectional(LSTM(eDim, return_sequences=True, dropout=DROPOUT_RATE))(y)
+    encode_input = Input(shape=(None, encode_vocab_size), dtype='int32', name='encode_input')
+    encode_input_embedding = Embedding(output_dim=eDim, mask_zero=True,)(encode_input)
+    encode_BiLSTM_layer = Bidirectional(LSTM(hide_dim, return_sequences=False, return_state=True, dropout=DROPOUT_RATE))
+    encode_outputs, encode_h, encode_c = encode_BiLSTM_layer(encode_input_embedding)
+    encode_state = [encode_h, encode_c]
+    decode_input = Input(shape=(None, decoding_embedding_size), dtype='int32', name='decode_input')
+    decode_input_embedding = Embedding(output_dim=eDim, mask_zero=True,)(decode_input)
+    decode_BiLSTM_layer = Bidirectional(LSTM(hide_dim, return_sequences=True, dropout=DROPOUT_RATE))
+    decode_outputs = decode_BiLSTM_layer(decode_input_embedding,initial_state=encode_state)
+    decode_dense_layer = Dense(decoding_embedding_size, activation='softmax')
+    decode_outputs = decode_dense_layer(decode_outputs)
+
+    seq2seq_model = Model([encode_input, decode_input], decode_outputs)
+    seq2seq_model.compile(optimizer=Adam(lr=learning_rate,decay=1e-3), loss='categorical_crossentropy')
+
+    encode_model = Model(encode_input, encode_state)
+
+    decode_state_input_h = Input(shape=(hide_dim,))
+    decode_state_input_c = Input(shape=(hide_dim,))
+    decode_states = [decode_state_input_h, decode_state_input_c]
+    decode_outputs = decode_BiLSTM_layer(decode_input,
+                                    initial_state=decode_states)
+    decode_outputs = decode_dense_layer(decode_outputs)
+    decode_model = Model([decode_input] + decode_states,decode_outputs)
+
+    def decode_sequence(input_seq):
+        # Encode the input as state vectors.
+        states_value = encode_model.predict(input_seq)
+
+        # Generate empty target sequence of length 1.
+        target_seq = np.zeros((1, 1, decode_vocab_size))
+        # Populate the first character of target sequence with the start character.
+        # 将第一个词置为开始词
+        target_seq[0, 0, target_token_index['\t']] = 1.
+
+        # Sampling loop for a batch of sequences
+        # (to simplify, here we assume a batch of size 1).
+        stop_condition = False
+        decoded_sentence = ''
+        while not stop_condition:
+            output_tokens = decode_model.predict([target_seq] + states_value)
+
+            # Sample a token
+            sampled_token_index = np.argmax(output_tokens[0, -1, :])
+            sampled_char = reverse_target_char_index[sampled_token_index]
+            decoded_sentence += sampled_char
+
+            # Exit condition: either hit max length
+            # or find stop character.
+            if (sampled_char == '\n' or
+                    len(decoded_sentence) > max_decoder_seq_length):
+                stop_condition = True
+
+            # Add the sampled character to the sequence
+            char_vector = np.zeros((1, 1, num_decoder_tokens))
+            char_vector[0, 0, sampled_token_index] = 1.
+
+            target_seq = np.concatenate([target_seq, char_vector], axis=1)
+
+        return decoded_sentence
+    # model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+    #           batch_size=batch_size,
+    #           epochs=epochs,
+    #           validation_split=0.2)
+
 # 输入层
 def get_inputs():
     inputs = tf.placeholder(tf.int32, [None, None], name='inputs')
@@ -234,7 +294,7 @@ with train_graph.as_default():
     masks = tf.sequence_mask(target_sequence_length, max_target_sequence_length, dtype=tf.float32, name="masks")
 
     # phone_accuracy
-    logits_flat = tf.reshape(training_logits, [-1, decoder_vocab_size])
+    logits_flat = tf.reshape(training_logits, [-1, decode_vocab_size])
     predict = tf.cast(tf.reshape(tf.argmax(logits_flat, 1), [tf.shape(input_data)[0], -1]),
                       tf.int32, name='predict')
     corr_target_id_cnt = tf.cast(tf.reduce_sum(
