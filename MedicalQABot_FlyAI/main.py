@@ -40,15 +40,27 @@ flyai库中的提供的数据处理方法
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=args.VAL_BATCH)
 model = Model(dataset)
 
-# 超参数
-que_dict, ans_dict = load_dict()
+# region 词典构建
+que_dict, ans_dict  = load_dict()
+que_idx2word        = { v: k for k, v in que_dict.items()}
+ans_idx2word        = { v: k for k, v in ans_dict.items()}
+pad_idx = que_dict['_pad_']
+word0   = que_idx2word[0]
+que_dict['_pad_'], que_dict[word0]          = 0, pad_idx
+que_idx2word[0], que_idx2word[pad_idx]      = '_pad_', word0
+pad_idx = ans_dict['_pad_']
+word0   = ans_idx2word[0]
+ans_dict['_pad_'], ans_dict[word0]          = 0, pad_idx
+ans_idx2word[0], ans_idx2word[pad_idx]      = '_pad_', word0
 
-# region 合并问题与答案词典
+# # region 合并问题与答案词典
 # for k, v in ans_dict.items():
 #     que_dict.setdefault(k,len(que_dict))
 # ans_dict = que_dict
+# # endregion
 # endregion
 
+# 超参数
 encode_vocab_size = len(que_dict)
 decode_vocab_size = len(ans_dict)
 # Batch Size,
@@ -67,12 +79,12 @@ learning_rate = 0.001
 DROPOUT_RATE = 0.2
 
 def create_model():
-    encode_input = Input(shape=(None, encode_vocab_size), dtype='int32', name='encode_input')
+    encode_input = Input(shape=(None), dtype='int32', name='encode_input')
     encode_input_embedding = Embedding(output_dim=eDim, mask_zero=True,)(encode_input)
     encode_BiLSTM_layer = Bidirectional(LSTM(hide_dim, return_sequences=False, return_state=True, dropout=DROPOUT_RATE))
     encode_outputs, encode_h, encode_c = encode_BiLSTM_layer(encode_input_embedding)
     encode_state = [encode_h, encode_c]
-    decode_input = Input(shape=(None, decoding_embedding_size), dtype='int32', name='decode_input')
+    decode_input = Input(shape=(None,), dtype='int32', name='decode_input')
     decode_input_embedding = Embedding(output_dim=eDim, mask_zero=True,)(decode_input)
     decode_BiLSTM_layer = Bidirectional(LSTM(hide_dim, return_sequences=True, dropout=DROPOUT_RATE))
     decode_outputs = decode_BiLSTM_layer(decode_input_embedding,initial_state=encode_state)
@@ -80,27 +92,27 @@ def create_model():
     decode_outputs = decode_dense_layer(decode_outputs)
 
     seq2seq_model = Model([encode_input, decode_input], decode_outputs)
+
     seq2seq_model.compile(optimizer=Adam(lr=learning_rate,decay=1e-3), loss='categorical_crossentropy')
 
     encode_model = Model(encode_input, encode_state)
-
     decode_state_input_h = Input(shape=(hide_dim,))
     decode_state_input_c = Input(shape=(hide_dim,))
     decode_states = [decode_state_input_h, decode_state_input_c]
     decode_outputs = decode_BiLSTM_layer(decode_input,
-                                    initial_state=decode_states)
+                                         initial_state=decode_states)
     decode_outputs = decode_dense_layer(decode_outputs)
     decode_model = Model([decode_input] + decode_states,decode_outputs)
 
-    def decode_sequence(input_seq):
+    def decode_sequence(input_seq,max_decode_seq_length):
         # Encode the input as state vectors.
         states_value = encode_model.predict(input_seq)
 
         # Generate empty target sequence of length 1.
-        target_seq = np.zeros((1, 1, decode_vocab_size))
+        target_seq = np.zeros((1, 1))
         # Populate the first character of target sequence with the start character.
         # 将第一个词置为开始词
-        target_seq[0, 0, target_token_index['\t']] = 1.
+        target_seq[0, 0] = ans_dict['_sos_']
 
         # Sampling loop for a batch of sequences
         # (to simplify, here we assume a batch of size 1).
@@ -110,23 +122,24 @@ def create_model():
             output_tokens = decode_model.predict([target_seq] + states_value)
 
             # Sample a token
-            sampled_token_index = np.argmax(output_tokens[0, -1, :])
-            sampled_char = reverse_target_char_index[sampled_token_index]
-            decoded_sentence += sampled_char
+            sampled_word_index = np.argmax(output_tokens[0, -1, :])
+            sampled_word = ans_idx2word[sampled_word_index]
+            decoded_sentence += sampled_word
 
             # Exit condition: either hit max length
             # or find stop character.
-            if (sampled_char == '\n' or
-                    len(decoded_sentence) > max_decoder_seq_length):
+            if (sampled_word == '_sos_' or
+                    len(decoded_sentence) > max_decode_seq_length):
                 stop_condition = True
 
             # Add the sampled character to the sequence
-            char_vector = np.zeros((1, 1, num_decoder_tokens))
-            char_vector[0, 0, sampled_token_index] = 1.
+            word_idx = np.zeros((1, 1))
+            word_idx[0, 0,] = sampled_word_index
 
-            target_seq = np.concatenate([target_seq, char_vector], axis=1)
+            target_seq = np.concatenate([target_seq, word_idx], axis=1)
 
         return decoded_sentence
+
     # model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
     #           batch_size=batch_size,
     #           epochs=epochs,
