@@ -23,7 +23,7 @@ from keras.utils import plot_model
 from keras_applications.densenet import DenseNet201, preprocess_input
 
 from model import Model
-from utilities import data_split
+from utilities import data_split, label_smoothing
 from path import MODEL_PATH
 
 # 获取预训练模型路径
@@ -97,7 +97,7 @@ densenet201.load_weights(path)
 print('load done !!!')
 
 x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
-train_len   = x_train.shape[0]
+train_len = x_train.shape[0]
 
 def gen_batch_data(dataset, x, y, batch_size):
     '''
@@ -122,7 +122,9 @@ def gen_batch_data(dataset, x, y, batch_size):
         x_data = x[bi:ei]
         y_data = y[bi:ei]
         x_batch = dataset.processor_x(x_data)
+        x_batch = preprocess_input(x_batch, **kwargs)
         y_batch = dataset.processor_y(y_data)
+        y_batch = label_smoothing(y_batch)
         yield x_batch, y_batch
 
 checkpoint = ModelCheckpoint(model.model_path,
@@ -132,8 +134,20 @@ checkpoint = ModelCheckpoint(model.model_path,
                              verbose=1,
                              mode='max',
                              period=1,)
-earlystop = EarlyStopping(monitor='val_categorical_accuracy', verbose=1, patience=150,)
-lrs = LearningRateScheduler(lambda epoche, lr: pow(0.9,epoche//50)*lr, verbose=1)
+earlystop = EarlyStopping(monitor='val_categorical_accuracy', verbose=1, patience=300,)
+
+def lrs_fun(epoch, lr):
+    '''
+    LearningRateScheduler 回调函数中，学习率衰减函数
+    :param epoch:
+    :param lr: 当前的LearningRate
+    :return:
+    '''
+    if epoch % 50 == 49:
+        return 0.9 * lr
+    else:
+        return lr
+lrs = LearningRateScheduler(lrs_fun, verbose=1)
 cbs = [checkpoint, earlystop, lrs]
 
 train_generator = gen_batch_data(dataset,x_train,y_train,args.BATCH)

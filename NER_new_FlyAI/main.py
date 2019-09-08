@@ -84,7 +84,11 @@ def gen_batch_data(x,y,batch_size):
         #                       list(y_smp[:])[0:TIME_STEP] for y_smp in y_data])
 
         # Embedding 层 mask_zero = True，所以 x 用 0 补齐
-        x_batch = np.asarray([list(x_smp[:]) + (max_seq_length - x_smp.shape[0]) * [0] for x_smp in x_data])
+        # x_batch = np.asarray([list(x_smp[:]) + (max_seq_length - x_smp.shape[0]) * [0] for x_smp in x_data])
+        # y_batch = np.asarray([list(y_smp[:]) + (max_seq_length - y_smp.shape[0]) * [TAGS_NUM - 1] for y_smp in y_data])
+
+        # 利用单独的masking层实现变长序列，所以 x 用 config.src_padding 补齐
+        x_batch = np.asarray([list(x_smp[:]) + (max_seq_length - x_smp.shape[0]) * [config.src_padding] for x_smp in x_data])
         y_batch = np.asarray([list(y_smp[:]) + (max_seq_length - y_smp.shape[0]) * [TAGS_NUM - 1] for y_smp in y_data])
 
         tmpShape = y_batch.shape
@@ -123,7 +127,7 @@ if not os.path.exists(MODEL_PATH):
 
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
                         epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 2,
-                        validation_freq=1,
+                        # validation_freq=1,
                         callbacks=[checkpoint, earlystop])
 
 # # max_val_acc, min_loss = 0, float('inf')

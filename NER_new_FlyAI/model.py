@@ -28,7 +28,7 @@ import config
 KERAS_MODEL_NAME = "my_BiLSTM_CRF.h5"
 
 # 得到训练和测试的数据
-BiRNN_UNITS     = 2 * config.embeddings_size   # 双向RNN每步输出维数(2*单向维数)，  每个RNN(每个time step)输出维数， 设置成和 嵌入维数一样
+BiRNN_UNITS     = 2 * 256   # BiLSTM 输出维数
 EMBED_DIM       = config.embeddings_size      # 默认词向量的大小等于RNN(每个time step) 和 CNN(列) 中神经单元的个数, 为了避免混淆model中全部用unit_num表示。
 TIME_STEP       = config.max_sequence      # 每个句子的最大长度和time_step一样,为了避免混淆model中全部用time_step表示。
 DROPOUT_RATE    = config.dropout
@@ -41,14 +41,14 @@ LABEL_DIC       = config.label_dic
 class Model(Base):
     def create_NER_model(self):
         ner_model = Sequential()
-        # keras_contrib 2.0.8, keras 2.2.5,下 当mmask_zero=True 会报
+        # keras_contrib 2.0.8, keras 2.2.5,下 当mask_zero=True 会报
         # Tensors in list passed to 'values' of 'ConcatV2' Op have types [bool, float32] that don't all match.`
         # 错误。
         # 改成keras 2.2.4 解决
-        embedding = Embedding(VOCAB_SIZE + 1, EMBED_DIM, mask_zero=True,
+        embedding = Embedding(input_dim=VOCAB_SIZE, output_dim = EMBED_DIM, mask_zero=False,
                               embeddings_initializer=constant(load_word2vec_embedding(config.vocab_size)))
         ner_model.add(embedding)
-        # ner_model.add(Masking(mask_value=config.src_padding,))
+        ner_model.add(Masking(mask_value=config.src_padding,))
         ner_model.add(Bidirectional(LSTM(BiRNN_UNITS // 2, return_sequences=True, dropout=DROPOUT_RATE)))
         crf = CRF(len(LABEL_DIC), sparse_target=True)
         ner_model.add(crf)
