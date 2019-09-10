@@ -23,7 +23,6 @@ def data_split(dataset,val_ratio=0.1):
     x_train, y_train, x_val, y_val = dataset.get_all_data()
     x_data = np.concatenate((x_train, x_val))
     y_data = np.concatenate((y_train, y_val))
-    # val_ratio = 0.1
     train_len = int(x_data.shape[0] * (1 - val_ratio))
     x_train = x_data[0:train_len]
     y_train = y_data[0:train_len]

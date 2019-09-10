@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @File  : main.py
+# @File  : main_back.py
 # @Author: Zhan
-# @Date  : 7/18/2019
+# @Date  : 9/10/2019
 # @Desc  :
+
 import argparse
 
 import tensorflow as tf
@@ -28,9 +29,9 @@ args = parser.parse_args()
 flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
-dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=args.BATCH)
+dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=64)
 
-# vocab_size = Processor().getWordsCount()
+vocab_size = Processor().getWordsCount()
 
 # region 准备数据
 # allDataLength = dataset.get_train_length()
@@ -52,7 +53,7 @@ dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=args.BATCH)
 
 # region 训练预测模型
 myModel = Model(dataset)
-myModel.train_model(epochs = args.EPOCHS, train_batch_size=args.BATCH)
+myModel.train_model(needInit=False, loadmodelType='embedding', epochs = args.EPOCHS)
 # endregion
 
 

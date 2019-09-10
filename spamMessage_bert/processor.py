@@ -25,8 +25,8 @@ class Processor(Base):
         和dataset.next_validation_batch()多次调用。可在该方法中做数据增强
         该方法字段与app.yaml中的input:->columns:对应
         '''
-        sent_ids = sentence2ids(text, self.word_dict)
-
+        # sent_ids = sentence2ids(text, self.word_dict)
+        sent_ids = sentence2ids_bert(text, self.word_dict)
         return sent_ids
 
     def input_y(self, label):
