@@ -26,7 +26,7 @@ class Processor(Base):
         该方法字段与app.yaml中的input:->columns:对应
         '''
         # sent_ids = sentence2ids(text, self.word_dict)
-        sent_ids = sentence2ids_bert(text, self.word_dict)
+        sent_ids = sentence2ids_bert(text,)
         return sent_ids
 
     def input_y(self, label):

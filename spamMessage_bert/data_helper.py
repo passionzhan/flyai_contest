@@ -20,6 +20,8 @@ from path import *
 # DICTFILE = 'vocab.dict'
 # FILENAME = 'dev.csv'
 
+tokenizer = tokenization.FullTokenizer(VOCAB_FILE)
+
 def data_process(text_str):
     tokenizer = tokenization.FullTokenizer(VOCAB_FILE)
     tokens = tokenizer.tokenize(text_str)
@@ -58,14 +60,14 @@ def sentence2ids(sentence,dict,max_seq_len=256):
         ids = ids[:max_seq_len]
     return ids
 
-def data_process_bert(text_str):
-    tokenizer = tokenization.FullTokenizer(VOCAB_FILE)
-    tokens = tokenizer.tokenize(text_str)
-    tokens.insert(0,'[CLS]')
-    tokens.append("[SEP]")
-    ids = tokenizer.convert_tokens_to_ids(tokens)
-    # ids = np.asarray(ids,dtype=np.int32)
-    return ids
+# def data_process_bert(text_str):
+#     tokenizer = tokenization.FullTokenizer(VOCAB_FILE)
+#     tokens = tokenizer.tokenize(text_str)
+#     tokens.insert(0,'[CLS]')
+#     tokens.append("[SEP]")
+#     ids = tokenizer.convert_tokens_to_ids(tokens)
+#     # ids = np.asarray(ids,dtype=np.int32)
+#     return ids
 
 def sentence2ids_bert(sentence,):
     '''
@@ -73,7 +75,11 @@ def sentence2ids_bert(sentence,):
     :param dict:
     :return:
     '''
-    return data_process_bert(sentence)
+    tokens = tokenizer.tokenize(sentence)
+    tokens.insert(0,'[CLS]')
+    tokens.append("[SEP]")
+    ids = tokenizer.convert_tokens_to_ids(tokens)
+    return ids
 
 #
 # def generateDictFile(minNum=0):
