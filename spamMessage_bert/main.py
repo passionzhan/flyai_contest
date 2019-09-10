@@ -21,7 +21,7 @@ print(tf.__version__)
 '''
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--EPOCHS", default=2, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=32, type=int, help="batch size")
+parser.add_argument("-b", "--BATCH", default=6, type=int, help="batch size")
 args = parser.parse_args()
 
 '''
@@ -29,7 +29,6 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH,val_batch=args.BATCH)
-
 # vocab_size = Processor().getWordsCount()
 
 # region 准备数据

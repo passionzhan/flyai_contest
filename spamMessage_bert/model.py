@@ -16,19 +16,20 @@ from utilities import data_split
 def create_model():
     # region 模型超参数
     # is_training         = True
+    # batch_size          = 256
     batch_size          = 256
     max_seq_len         = 256
     num_classes = 2
 
     #  创建bert的输入
-    input_ids       = tf.placeholder(shape=[batch_size, max_seq_len], dtype=tf.int32, name="input_ids")
-    input_mask      = tf.placeholder(shape=[batch_size, max_seq_len], dtype=tf.int32, name="input_mask")
-    segment_ids     = tf.placeholder(shape=[batch_size, max_seq_len], dtype=tf.int32, name="segment_ids")
+    input_ids       = tf.placeholder(shape=[None, max_seq_len], dtype=tf.int32, name="input_ids")
+    input_mask      = tf.placeholder(shape=[None, max_seq_len], dtype=tf.int32, name="input_mask")
+    segment_ids     = tf.placeholder(shape=[None, max_seq_len], dtype=tf.int32, name="segment_ids")
     keep_prob       = tf.placeholder(tf.float32, name='keep_prob')
-    learning_rate              = tf.placeholder(tf.float32, name='learning_rate')
+    learning_rate   = tf.placeholder(tf.float32, name='learning_rate')
 
     ###
-    input_labels = tf.placeholder(shape=batch_size, dtype=tf.int32, name="input_labels")
+    input_labels = tf.placeholder(shape=[None,], dtype=tf.int32, name="input_labels")
     # 创建bert模型
     model = modeling.BertModel(
         config=BERT_CONFIG,
@@ -47,7 +48,7 @@ def create_model():
     with tf.variable_scope("fc1"):
         output_layer = tf.nn.dropout(output_layer, keep_prob=keep_prob)
 
-        fc1 = tf.get_variable(shape=[num_classes,hidden_size],dtype=tf.float32,initializer=tf.initializers.he_normal(),name="fc1")
+        fc1 = tf.get_variable(shape=[num_classes, hidden_size],dtype=tf.float32,initializer=tf.initializers.he_normal(),name="fc1")
         bias1 = tf.Variable(tf.zeros(shape=[num_classes,]),name='bias1')
         fc1 = tf.matmul(output_layer,fc1,transpose_b=True) + bias1
 
@@ -148,13 +149,15 @@ def conver2Input(x_batch, max_seq_len=256):
     return input_ids_batch, input_mask_batch, segment_ids_batch
 
 class Model(Base):
-    def __init__(self, data):
+    def __init__(self, data,):
         self.data = data
+        self.batch_size = 6
         self.model_path = os.path.join(MODEL_PATH, TENSORFLOW_MODEL_DIR)
         # self.vocab_size = Processor().getWordsCount()
         self.inputParams, self.outputParams, self.summaryParams = create_model()
 
     def train_model(self, epochs=32, val_ratio=0.1, train_batch_size=256,val_batch_size = None):
+        # train_batch_size
         if val_batch_size is None:
             val_batch_size = 2 * train_batch_size
         x_train,y_train,x_val,y_val = data_split(self.data,val_ratio=val_ratio)
