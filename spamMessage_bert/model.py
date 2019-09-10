@@ -134,7 +134,7 @@ def conver2Input(x_batch, max_seq_len=256):
             seg_token_idx = x[-1]
             x = x + [0] * (max_seq_len - len(x))
 
-        x_batch[i] = x
+        # x_batch[i] = x
         tmp_seg = [0] * max_seq_len
         tmp_seg[seg_token_idx] = 1
         tmp_mask = [0] * max_seq_len
