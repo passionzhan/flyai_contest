@@ -24,7 +24,7 @@ import json
 import re
 
 import modeling
-import tokenization_back
+import tokenization
 import tensorflow as tf
 
 flags = tf.flags
@@ -283,7 +283,7 @@ def convert_examples_to_features(examples, seq_length, tokenizer):
       tf.logging.info("*** Example ***")
       tf.logging.info("unique_id: %s" % (example.unique_id))
       tf.logging.info("tokens: %s" % " ".join(
-          [tokenization_back.printable_text(x) for x in tokens]))
+          [tokenization.printable_text(x) for x in tokens]))
       tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
       tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
       tf.logging.info(
@@ -322,7 +322,7 @@ def read_examples(input_file):
   unique_id = 0
   with tf.gfile.GFile(input_file, "r") as reader:
     while True:
-      line = tokenization_back.convert_to_unicode(reader.readline())
+      line = tokenization.convert_to_unicode(reader.readline())
       if not line:
         break
       line = line.strip()
@@ -347,7 +347,7 @@ def main(_):
 
   bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
 
-  tokenizer = tokenization_back.FullTokenizer(
+  tokenizer = tokenization.FullTokenizer(
       vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
 
   is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2

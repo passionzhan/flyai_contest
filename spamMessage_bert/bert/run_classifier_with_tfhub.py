@@ -21,7 +21,7 @@ from __future__ import print_function
 import os
 import optimization
 import run_classifier
-import tokenization_back
+import tokenization
 import tensorflow as tf
 import tensorflow_hub as hub
 
@@ -151,7 +151,7 @@ def create_tokenizer_from_hub_module(bert_hub_module_handle):
     with tf.Session() as sess:
       vocab_file, do_lower_case = sess.run([tokenization_info["vocab_file"],
                                             tokenization_info["do_lower_case"]])
-  return tokenization_back.FullTokenizer(
+  return tokenization.FullTokenizer(
       vocab_file=vocab_file, do_lower_case=do_lower_case)
 
 

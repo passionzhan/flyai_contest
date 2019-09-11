@@ -23,7 +23,7 @@ import csv
 import os
 import modeling
 import optimization
-import tokenization_back
+import tokenization
 import tensorflow as tf
 
 flags = tf.flags
@@ -220,11 +220,11 @@ class XnliProcessor(DataProcessor):
       if i == 0:
         continue
       guid = "train-%d" % (i)
-      text_a = tokenization_back.convert_to_unicode(line[0])
-      text_b = tokenization_back.convert_to_unicode(line[1])
-      label = tokenization_back.convert_to_unicode(line[2])
-      if label == tokenization_back.convert_to_unicode("contradictory"):
-        label = tokenization_back.convert_to_unicode("contradiction")
+      text_a = tokenization.convert_to_unicode(line[0])
+      text_b = tokenization.convert_to_unicode(line[1])
+      label = tokenization.convert_to_unicode(line[2])
+      if label == tokenization.convert_to_unicode("contradictory"):
+        label = tokenization.convert_to_unicode("contradiction")
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
@@ -237,12 +237,12 @@ class XnliProcessor(DataProcessor):
       if i == 0:
         continue
       guid = "dev-%d" % (i)
-      language = tokenization_back.convert_to_unicode(line[0])
-      if language != tokenization_back.convert_to_unicode(self.language):
+      language = tokenization.convert_to_unicode(line[0])
+      if language != tokenization.convert_to_unicode(self.language):
         continue
-      text_a = tokenization_back.convert_to_unicode(line[6])
-      text_b = tokenization_back.convert_to_unicode(line[7])
-      label = tokenization_back.convert_to_unicode(line[1])
+      text_a = tokenization.convert_to_unicode(line[6])
+      text_b = tokenization.convert_to_unicode(line[7])
+      label = tokenization.convert_to_unicode(line[1])
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
@@ -281,13 +281,13 @@ class MnliProcessor(DataProcessor):
     for (i, line) in enumerate(lines):
       if i == 0:
         continue
-      guid = "%s-%s" % (set_type, tokenization_back.convert_to_unicode(line[0]))
-      text_a = tokenization_back.convert_to_unicode(line[8])
-      text_b = tokenization_back.convert_to_unicode(line[9])
+      guid = "%s-%s" % (set_type, tokenization.convert_to_unicode(line[0]))
+      text_a = tokenization.convert_to_unicode(line[8])
+      text_b = tokenization.convert_to_unicode(line[9])
       if set_type == "test":
         label = "contradiction"
       else:
-        label = tokenization_back.convert_to_unicode(line[-1])
+        label = tokenization.convert_to_unicode(line[-1])
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
@@ -322,12 +322,12 @@ class MrpcProcessor(DataProcessor):
       if i == 0:
         continue
       guid = "%s-%s" % (set_type, i)
-      text_a = tokenization_back.convert_to_unicode(line[3])
-      text_b = tokenization_back.convert_to_unicode(line[4])
+      text_a = tokenization.convert_to_unicode(line[3])
+      text_b = tokenization.convert_to_unicode(line[4])
       if set_type == "test":
         label = "0"
       else:
-        label = tokenization_back.convert_to_unicode(line[0])
+        label = tokenization.convert_to_unicode(line[0])
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
@@ -364,11 +364,11 @@ class ColaProcessor(DataProcessor):
         continue
       guid = "%s-%s" % (set_type, i)
       if set_type == "test":
-        text_a = tokenization_back.convert_to_unicode(line[1])
+        text_a = tokenization.convert_to_unicode(line[1])
         label = "0"
       else:
-        text_a = tokenization_back.convert_to_unicode(line[3])
-        label = tokenization_back.convert_to_unicode(line[1])
+        text_a = tokenization.convert_to_unicode(line[3])
+        label = tokenization.convert_to_unicode(line[1])
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
     return examples
@@ -461,7 +461,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     tf.logging.info("*** Example ***")
     tf.logging.info("guid: %s" % (example.guid))
     tf.logging.info("tokens: %s" % " ".join(
-        [tokenization_back.printable_text(x) for x in tokens]))
+        [tokenization.printable_text(x) for x in tokens]))
     tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
     tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
     tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
@@ -790,8 +790,8 @@ def main(_):
       "xnli": XnliProcessor,
   }
 
-  tokenization_back.validate_case_matches_checkpoint(FLAGS.do_lower_case,
-                                                     FLAGS.init_checkpoint)
+  tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
+                                                FLAGS.init_checkpoint)
 
   if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
     raise ValueError(
@@ -816,7 +816,7 @@ def main(_):
 
   label_list = processor.get_labels()
 
-  tokenizer = tokenization_back.FullTokenizer(
+  tokenizer = tokenization.FullTokenizer(
       vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
 
   tpu_cluster_resolver = None

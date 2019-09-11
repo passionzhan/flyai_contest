@@ -20,8 +20,8 @@ print(tf.__version__)
 项目中的超参
 '''
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=2, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=6, type=int, help="batch size")
+parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
+parser.add_argument("-b", "--BATCH", default=32, type=int, help="batch size")
 args = parser.parse_args()
 
 '''

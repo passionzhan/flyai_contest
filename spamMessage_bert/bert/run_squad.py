@@ -25,7 +25,7 @@ import os
 import random
 import modeling
 import optimization
-import tokenization_back
+import tokenization
 import six
 import tensorflow as tf
 
@@ -181,9 +181,9 @@ class SquadExample(object):
 
   def __repr__(self):
     s = ""
-    s += "qas_id: %s" % (tokenization_back.printable_text(self.qas_id))
+    s += "qas_id: %s" % (tokenization.printable_text(self.qas_id))
     s += ", question_text: %s" % (
-        tokenization_back.printable_text(self.question_text))
+        tokenization.printable_text(self.question_text))
     s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
     if self.start_position:
       s += ", start_position: %d" % (self.start_position)
@@ -283,7 +283,7 @@ def read_squad_examples(input_file, is_training):
             actual_text = " ".join(
                 doc_tokens[start_position:(end_position + 1)])
             cleaned_answer_text = " ".join(
-                tokenization_back.whitespace_tokenize(orig_answer_text))
+                tokenization.whitespace_tokenize(orig_answer_text))
             if actual_text.find(cleaned_answer_text) == -1:
               tf.logging.warning("Could not find answer: '%s' vs. '%s'",
                                  actual_text, cleaned_answer_text)
@@ -433,7 +433,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tf.logging.info("example_index: %s" % (example_index))
         tf.logging.info("doc_span_index: %s" % (doc_span_index))
         tf.logging.info("tokens: %s" % " ".join(
-            [tokenization_back.printable_text(x) for x in tokens]))
+            [tokenization.printable_text(x) for x in tokens]))
         tf.logging.info("token_to_orig_map: %s" % " ".join(
             ["%d:%d" % (x, y) for (x, y) in six.iteritems(token_to_orig_map)]))
         tf.logging.info("token_is_max_context: %s" % " ".join([
@@ -451,7 +451,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
           tf.logging.info("start_position: %d" % (start_position))
           tf.logging.info("end_position: %d" % (end_position))
           tf.logging.info(
-              "answer: %s" % (tokenization_back.printable_text(answer_text)))
+              "answer: %s" % (tokenization.printable_text(answer_text)))
 
       feature = InputFeatures(
           unique_id=unique_id,
@@ -967,7 +967,7 @@ def get_final_text(pred_text, orig_text, do_lower_case):
   # and `pred_text`, and check if they are the same length. If they are
   # NOT the same length, the heuristic has failed. If they are the same
   # length, we assume the characters are one-to-one aligned.
-  tokenizer = tokenization_back.BasicTokenizer(do_lower_case=do_lower_case)
+  tokenizer = tokenization.BasicTokenizer(do_lower_case=do_lower_case)
 
   tok_text = " ".join(tokenizer.tokenize(orig_text))
 
@@ -1096,8 +1096,8 @@ class FeatureWriter(object):
 
 def validate_flags_or_throw(bert_config):
   """Validate the input FLAGS or throw an exception."""
-  tokenization_back.validate_case_matches_checkpoint(FLAGS.do_lower_case,
-                                                     FLAGS.init_checkpoint)
+  tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
+                                                FLAGS.init_checkpoint)
 
   if not FLAGS.do_train and not FLAGS.do_predict:
     raise ValueError("At least one of `do_train` or `do_predict` must be True.")
@@ -1132,7 +1132,7 @@ def main(_):
 
   tf.gfile.MakeDirs(FLAGS.output_dir)
 
-  tokenizer = tokenization_back.FullTokenizer(
+  tokenizer = tokenization.FullTokenizer(
       vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
 
   tpu_cluster_resolver = None
