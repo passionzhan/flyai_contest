@@ -209,6 +209,7 @@ class Model(Base):
             save_saver = tf.train.Saver()
             lr = 0.01
             for epoch in range(epochs):
+                print("epoch:{0}".format(epoch))
                 noChangedSteps = 0
                 for j in range(steps_per_epoch):
                     x_train_batch, y_train_batch = next(gen_train_batch)
