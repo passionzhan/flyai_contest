@@ -175,11 +175,6 @@ class Model(Base):
         if val_batch_size is None:
             val_batch_size = 2 * train_batch_size
         x_train,y_train,x_val,y_val = data_split(self.data,val_ratio=val_ratio)
-        # processor_x   返回的是list 构成的np.arrya
-        x_train = self.data.processor_x(x_train)
-        x_val = self.data.processor_x(x_val)
-        y_train = self.data.processor_y(y_train)
-        y_val = self.data.processor_y(y_val)
         train_len = x_train.shape[0]
         steps_per_epoch = math.ceil(train_len / train_batch_size)
 
@@ -217,6 +212,10 @@ class Model(Base):
                 noChangedSteps = 0
                 for j in range(steps_per_epoch):
                     x_train_batch, y_train_batch = next(gen_train_batch)
+                    # processor_x   返回的是list 构成的np.arry
+                    x_train_batch = self.data.processor_x(x_train_batch)
+                    y_train_batch = self.data.processor_y(y_train_batch)
+
                     input_ids_batch, input_mask_batch, segment_ids_batch \
                         = conver2Input(x_train_batch,max_seq_len=256)
 
@@ -233,11 +232,13 @@ class Model(Base):
                     }
 
                     loss_, accuracy_, _ = sess.run(fetches, feed_dict=feed_dict)
-                    print('当前批次: {}/{} | 当前训练损失: {} | 当前训练准确率： {}'
-                          .format(j,steps_per_epoch, loss_, accuracy_,))
+                    print('当前批次: {}/{}/{} | 当前训练损失: {} | 当前训练准确率： {}'
+                          .format(j,steps_per_epoch, epoch, loss_, accuracy_,))
 
                     if j % 100 == 0 or j == self.data.get_step()-1:
                         x_val_batch, y_val_batch = next(gen_val_batch)
+                        x_val_batch = self.data.processor_x(x_val_batch)
+                        y_val_batch = self.data.processor_y(y_val_batch)
                         input_ids_val_batch, input_mask_val_batch, segment_ids_val_batch \
                             = conver2Input(x_val_batch, max_seq_len=256)
 
@@ -249,8 +250,8 @@ class Model(Base):
                                                     input_y:y_val_batch,
                                                     keep_prob:1,
                                                 })
-                        print('当前批次: {}/{} | 当前验证集损失： {} | 当前验证集准确率： {}'
-                              .format(j, steps_per_epoch, val_loss, val_acc,))
+                        print('当前批次: {}/{}/{} | 当前验证集损失： {} | 当前验证集准确率： {}'
+                              .format(j, steps_per_epoch, epoch, val_loss, val_acc,))
                         if val_acc > max_acc:
                             noChangedSteps  = 0
                             max_acc =  val_acc
