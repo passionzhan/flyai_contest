@@ -1,0 +1,8 @@
+# curDir
+.flyai_darwin
+.flyai_linux
+flyai
+README.md
+data/
+*.h5
+data/

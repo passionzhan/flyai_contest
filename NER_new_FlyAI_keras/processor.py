@@ -50,9 +50,6 @@ class Processor(Base):
                 break
         return label
 
-    def processXY(self, x,y):
-        
-
 
 
 

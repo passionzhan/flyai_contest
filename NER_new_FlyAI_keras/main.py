@@ -45,7 +45,6 @@ ner_model = model.ner_model
 ner_model.summary()
 
 x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
-
 x_train     = dataset.processor_x(x_train)
 x_val       = dataset.processor_x(x_val)
 y_train     = dataset.processor_y(y_train)
