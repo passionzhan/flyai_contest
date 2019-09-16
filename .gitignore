@@ -8,6 +8,7 @@ __pycache__/
 *$py.class
 tf_study/
 NER_new_FlyAI_org/
+flyai.bat
 *.h5
 tensorflow_template/
 keras_template/
