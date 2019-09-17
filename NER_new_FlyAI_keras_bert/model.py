@@ -10,7 +10,7 @@ import os
 
 import numpy as np
 from flyai.model.base import Base
-from keras.layers import Input, Lambda
+from keras.layers import Input, Lambda, Masking
 from keras_bert import load_trained_model_from_checkpoint
 from keras.optimizers import Adam
 from keras import Model as kerasModel
@@ -74,6 +74,7 @@ class Model(Base):
 
         x = bert_model([x1_in, x2_in])
         x = Lambda(lambda x: x[:, 1:])(x)  # 取出每个单词对应的输出到CRF
+        x = Masking(mask_value=0, )(x)
         rst = CRF(len(LABEL_DIC), sparse_target=True)(x)
 
         ner_model = kerasModel([x1_in, x2_in], rst)

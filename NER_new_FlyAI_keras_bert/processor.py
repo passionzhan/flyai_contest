@@ -69,7 +69,7 @@ class Processor(Base):
 
         #   对 Y 进行补齐 #  去掉首位的[cls]
         if len(rst_y) < max_seq_len-1:
-            rst_y = rst_y + ['O',]*(max_seq_len-len(rst_y))
+            rst_y = rst_y + ['O',]*(max_seq_len-len(rst_y)-1)
         else:
             rst_y = rst_y[0:max_seq_len-1]
 

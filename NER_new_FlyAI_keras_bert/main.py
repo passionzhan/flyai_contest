@@ -14,7 +14,7 @@ from processor import Processor
 
 # 超参
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=16, type=int, help="train epochs")
+parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
 parser.add_argument("-b", "--BATCH", default=6, type=int, help="batch size")
 args = parser.parse_args()
 # 数据获取辅助类
@@ -72,7 +72,7 @@ def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
 
         for iLoop in range(len(x_batch)):
             y_processed = prcossor.processXY(x_batch[iLoop]['source'],y_batch[iLoop]['target'],max_seq_len=max_seq_len)
-            print(y_processed)
+            #print(y_processed)
             y_batch[iLoop]['target'] = y_processed
         # processor_x   返回的是list 构成的np.array
         x_batch = dataset.processor_x(x_batch)
@@ -80,6 +80,7 @@ def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
 
         x_batch_ids, x_batch_mask, x_batch_seg = conver2Input(x_batch, max_seq_len=max_seq_len)
 
+        y_batch = y_batch.reshape((y_batch.shape[0], y_batch.shape[1], 1))
         yield [x_batch_ids, x_batch_mask], y_batch
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
