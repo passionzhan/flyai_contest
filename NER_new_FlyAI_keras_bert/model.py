@@ -8,24 +8,20 @@
 # -*- coding: utf-8 -*
 import os
 
-import keras
-from keras.models import Sequential
-from keras.layers import Embedding, Bidirectional, LSTM, Masking
-from keras.initializers import constant
+import numpy as np
+from flyai.model.base import Base
+from keras.layers import Input, Lambda
+from keras_bert import load_trained_model_from_checkpoint
+from keras.optimizers import Adam
+from keras import Model as kerasModel
 from crf import CRF
 from crf_losses import crf_loss
 from crf_accuracies import crf_accuracy
-from keras.optimizers import Adam
-import numpy as np
-from flyai.model.base import Base
 
-from path import MODEL_PATH
-from utils import load_word2vec_embedding
+
+from path import *
 import config
 
-
-
-KERAS_MODEL_NAME = "my_BiLSTM_CRF.h5"
 
 # 得到训练和测试的数据
 BiRNN_UNITS     = 2 * 256   # BiLSTM 输出维数
@@ -37,24 +33,55 @@ TAGS_NUM        = config.label_len
 VOCAB_SIZE      = config.vocab_size + 2
 LABEL_DIC       = config.label_dic
 
+def conver2Input(x_batch, max_seq_len=256):
+    seg_ids         = []
+    mask_ids        = []
+    input_ids       = []
+    #  x 是np array
+    for i, x in enumerate(x_batch):
+        if len(x) > max_seq_len:
+            seg_token = x[-1]
+            x = x[0:max_seq_len]
+            x[max_seq_len-1] = seg_token
+            seg_token_idx = max_seq_len-1
+        else:
+            seg_token_idx = len(x) - 1
+            x = np.concatenate((x, np.asarray([0] * (max_seq_len - len(x)))))
+
+        input_ids.append(list(x))
+        tmp_seg = [0] * max_seq_len
+        tmp_seg[seg_token_idx] = 1
+        tmp_mask = [1] * max_seq_len
+        tmp_mask[seg_token_idx+1:] = [0] * (max_seq_len - seg_token_idx - 1)
+        seg_ids.append(tmp_seg)
+        mask_ids.append(tmp_mask)
+
+    input_ids_batch = np.asarray(input_ids, dtype=np.int32)
+    input_mask_batch = np.asarray(mask_ids, dtype=np.int32)
+    segment_ids_batch = np.asarray(seg_ids, dtype=np.int32)
+    return input_ids_batch, input_mask_batch, segment_ids_batch
 
 class Model(Base):
     def create_NER_model(self):
-        ner_model = Sequential()
-        # keras_contrib 2.0.8, keras 2.2.5,下 当mask_zero=True 会报
-        # Tensors in list passed to 'values' of 'ConcatV2' Op have types [bool, float32] that don't all match.`
-        # 错误。
-        # 改成keras 2.2.4 解决
-        embedding = Embedding(input_dim=VOCAB_SIZE, output_dim = EMBED_DIM, mask_zero=False,
-                              embeddings_initializer=constant(load_word2vec_embedding(config.vocab_size)))
-        ner_model.add(embedding)
-        ner_model.add(Masking(mask_value=config.src_padding,))
-        ner_model.add(Bidirectional(LSTM(BiRNN_UNITS // 2, return_sequences=True, dropout=DROPOUT_RATE)))
-        crf = CRF(len(LABEL_DIC), sparse_target=True)
-        ner_model.add(crf)
-        # 以下两种损失和度量写法都可以
-        ner_model.compile(Adam(lr=LEARN_RATE,decay=1e-3), loss=crf_loss, metrics=[crf_accuracy])
-        # ner_model.compile(Adam(lr=LEARN_RATE), loss=crf.loss_function, metrics=[crf.accuracy])
+        # 注意，尽管可以设置seq_len=None，但是仍要保证序列长度不超过512
+        bert_model = load_trained_model_from_checkpoint(BERT_CONFIG, BERT_CKPT, seq_len=None)
+
+        for layer in bert_model.layers:
+            layer.trainable = True
+
+        x1_in = Input(shape=(None,))
+        x2_in = Input(shape=(None,))
+
+        x = bert_model([x1_in, x2_in])
+        x = Lambda(lambda x: x[:, 1:])(x)  # 取出每个单词对应的输出到CRF
+        rst = CRF(len(LABEL_DIC), sparse_target=True)(x)
+
+        ner_model = kerasModel([x1_in, x2_in], rst)
+        ner_model.compile(
+            loss=crf_loss,
+            metrics=[crf_accuracy],
+            optimizer=Adam(1e-5),  # 用足够小的学习率
+        )
         return ner_model
 
     def __init__(self, dataset):

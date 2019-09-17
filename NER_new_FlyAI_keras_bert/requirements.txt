@@ -1,4 +1,5 @@
 keras==2.2.4
+keras-bert
 flyai
 numpy
 tensorflow
