@@ -71,7 +71,7 @@ def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
         y_batch = y[bi:ei]
 
         for iLoop in range(len(x_batch)):
-            y_processed = prcossor.processXY(x_batch[iLoop]['source'],y_batch[iLoop]['target'])
+            y_processed = prcossor.processXY(x_batch[iLoop]['source'],y_batch[iLoop]['target'],max_seq_len=max_seq_len)
             print(y_processed)
             y_batch[iLoop]['target'] = y_processed
         # processor_x   返回的是list 构成的np.array
