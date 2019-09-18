@@ -9,8 +9,10 @@ class Processor(Base):
     def __init__(self):
         self.token = None
         self.label_dic=config.label_dic
-        with open(config.src_vocab_file, 'r') as fw:
-            self.words_dic = json.load(fw)
+        self.token_dict = tokenizer._token_dict
+        self.token_dict_inv = tokenizer._token_dict_inv
+        # with open(config.src_vocab_file, 'r') as fw:
+        #     self.words_dic = json.load(fw)
 
     def input_x(self, source):
         '''
@@ -74,6 +76,36 @@ class Processor(Base):
             rst_y = rst_y[0:max_seq_len-1]
 
         return " ".join(rst_y)
+
+    def processedOutput(self, text, x, y):
+        x_char = [self.token_dict_inv[idx] for idx in x]
+
+        x_char = x_char[1:-1] #去掉首尾
+        data_list = text.split(" ")
+        yi = 0
+        pre_tag = 'O'
+        rst_y = []
+        for i, word in enumerate(data_list):
+            i_word = 0
+            assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+            if y[yi][0] == 'B':
+                if pre_tag == y[yi]:# 和前一个相同，则改成I
+                    rst_y.append('I'+y[yi][1:])
+                else:
+                    rst_y.append(y[yi])
+            else:
+                rst_y.append(y[yi])
+
+            pre_tag = rst_y[-1]
+            while True:
+                i_word += len(x_char[yi])
+                yi += 1
+                if i_word >= len(word):
+                    break
+                else:
+                    assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+        return rst_y
+
 
 if __name__ == '__main__':
     x = '今年年初 ， 邹士贵 老人 从 箱底 意外 地 翻出 了 一份 他于 1951 年 12 月 1 日 缴纳 人民币 5000 元 （ 旧币 ， 相当于 现在 的 0.5 元 ） 、 投保 20 年期 、 保险金额 为 113 万元 （ 相当于 现在 的 113 元 ） 的 简易 人身 保险单 。'

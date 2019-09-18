@@ -7,6 +7,7 @@
 import argparse
 import math
 
+import numpy as np
 from numpy import random
 import tensorflow as tf
 from flyai.dataset import Dataset
@@ -73,7 +74,8 @@ spamModel.summary()
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
-x_train, y_train, x_val, y_val = data_split(dataset,)
+x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.03)
+# 698399 样本训练  21600  验证
 train_len = x_train.shape[0]
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 print("real number of train examples:%d" % train_len)

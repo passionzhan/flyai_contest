@@ -18,7 +18,7 @@ from crf import CRF
 from crf_losses import crf_loss
 from crf_accuracies import crf_accuracy
 
-
+from processor import Processor
 from path import *
 import config
 
@@ -97,19 +97,25 @@ class Model(Base):
     '''
     评估一条数据
     '''
-    def predict(self,load_weights = False, **data):
+    def predict(self, processor= None, load_weights = False, **data):
         if load_weights:
             self.ner_model.load_weights(self.model_path)
         # 获取需要预测的图像数据， predict_data 方法默认会去调用 processor.py 中的 input_x 方法
         x_data = self.dataset.predict_data(**data)
-        word_num = x_data[0].shape[0]
+        word_num = x_data[0].shape[0] - 1 #  去掉首字符 '[cls]'
+        x_batch_ids, x_batch_mask, x_batch_seg = conver2Input(x_data, max_seq_len=config.max_sequence)
+        #
         # word_num = x_data.shape[1]
         # word_num
-        x_data = np.asarray([list(x_data[0])])
+        # x_data = np.asarray([list(x_data[0])])
 
-        predict = self.ner_model.predict(x_data)
+        predict = self.ner_model.predict([x_batch_ids, x_batch_mask,])
         # 将预测数据转换成对应标签  to_categorys 会去调用 processor.py 中的 output_y 方法
-        prediction = self.dataset.to_categorys(np.argmax(predict[0][:word_num],axis=-1))
+        # word_num - 1 去掉结尾的 '[sep]'字符。
+        prediction = self.dataset.to_categorys(np.argmax(predict[0][:word_num-1],axis=-1))
+        if processor is None:
+            processor = Processor()
+        prediction = processor.processedOutput(data['source'],x_data[0],prediction)
         return prediction
 
     '''
@@ -119,8 +125,9 @@ class Model(Base):
     def predict_all(self, datas):
         self.ner_model.load_weights(self.model_path)
         predictions = []
+        processor = Processor()
         for data in datas:
-            prediction = self.predict(**data)
+            prediction = self.predict(processor=processor,**data)
             predictions.append(prediction)
         return predictions
 

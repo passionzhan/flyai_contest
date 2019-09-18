@@ -4,7 +4,7 @@ import math
 
 from numpy import random
 from flyai.dataset import Dataset
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateScheduler
 
 from model import *
 import config
@@ -44,6 +44,7 @@ x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
 # y_train     = dataset.processor_y(y_train)
 # y_val       = dataset.processor_y(y_val)
 train_len   = x_train.shape[0]
+val_len     = x_val.shape[0]
 
 def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
     '''
@@ -84,9 +85,11 @@ def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
         yield [x_batch_ids, x_batch_mask], y_batch
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
+val_steps_per_epoch = math.ceil(val_len / args.BATCH)
 print("real number of train examples:%d" % train_len)
 print("real number of validation examples:%d" % x_val.shape[0])
 print("steps_per_epoch:%d" % steps_per_epoch)
+print("val_steps_per_epoch:%d" % val_steps_per_epoch)
 
 train_gen   = gen_batch_data(dataset,x_train,y_train,args.BATCH,max_seq_len=config.max_sequence)
 val_gen     = gen_batch_data(dataset,x_val,y_val,args.BATCH,max_seq_len=config.max_sequence)
@@ -99,14 +102,15 @@ checkpoint = ModelCheckpoint(model.model_path,
                              verbose=1,
                              mode='max')
 earlystop = EarlyStopping(patience=2,)
+lrs = LearningRateScheduler(lambda epoch, lr, : 0.9*lr, verbose=1)
 
 if not os.path.exists(MODEL_PATH):
     os.makedirs(MODEL_PATH)
 
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
-                        epochs=args.EPOCHS,validation_data=val_gen, validation_steps= 2,
-                        # validation_freq=1,
-                        callbacks=[checkpoint, earlystop])
+                        epochs=args.EPOCHS,validation_data=val_gen, validation_steps= val_steps_per_epoch,
+                        validation_freq=1,
+                        callbacks=[checkpoint, earlystop, lrs])
 
 # # max_val_acc, min_loss = 0, float('inf')
 # for i in range(dataset.get_step()):
