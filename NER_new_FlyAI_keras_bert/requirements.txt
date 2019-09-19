@@ -1,5 +1,5 @@
-keras==2.2.4
 keras-bert==0.74.0
 flyai
 numpy
-tensorflow
+tensorflow==1.14.0
+keras==2.2.4
