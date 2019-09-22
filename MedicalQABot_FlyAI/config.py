@@ -24,7 +24,7 @@ que_dict, ans_dict = load_dict()
 # endregion
 
 max_que_seq_len             = 128
-max_ans_seq_len             = 128
+max_ans_seq_len_predict     = 128
 hide_dim                    = 512
 eDim                        = 200
 # Embedding Size

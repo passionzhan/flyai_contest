@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*
-import os
 
-import tensorflow as tf
+import numpy as np
 from flyai.model.base import Base
-from tensorflow.python.saved_model import tag_constants
 from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
 from keras.models import Model
 from keras.optimizers import Adam
 
 from path import MODEL_PATH, QA_MODEL_DIR
-from data_helper import *
+from data_helper import id2ans
 from config import *
 
 def create_model():
@@ -49,7 +47,7 @@ class Model(Base):
             self.seq2seqModel.load_weights(self.model_path)
             print('加载训练好的模型结束')
 
-    def decode_sequence(self, input_seq, max_decode_seq_length,):
+    def decode_sequence(self, input_seq, max_decode_seq_length=max_ans_seq_len_predict,):
         # Encode the input as state vectors.
         states_value = self.encode_model.predict(input_seq)
 
@@ -58,34 +56,32 @@ class Model(Base):
         # Populate the first character of target sequence with the start character.
         # 将第一个词置为开始词
         target_seq[0, 0] = ans_dict['_sos_']
+        output_len       = 0
 
         # Sampling loop for a batch of sequences
         # (to simplify, here we assume a batch of size 1).
         stop_condition = False
-        decoded_sentence = ''
         while not stop_condition:
             output_tokens = self.decode_model.predict([target_seq] + states_value)
 
             # Sample a token
             sampled_word_index = np.argmax(output_tokens[0, -1, :])
-            sampled_word = ans_idx2word[sampled_word_index]
-            decoded_sentence += sampled_word
+            sampled_word = [sampled_word_index]
 
+            output_len += 1
             # Exit condition: either hit max length
             # or find stop character.
             if (sampled_word == '_sos_' or
-                    len(decoded_sentence) > max_decode_seq_length):
+                    output_len > max_decode_seq_length):
                 stop_condition = True
 
             # Add the sampled character to the sequence
             word_idx = np.zeros((1, 1))
-            word_idx[0, 0,] = sampled_word_index
+            word_idx[0, 0] = sampled_word_index
 
             target_seq = np.concatenate([target_seq, word_idx], axis=1)
 
-
-
-        return decoded_sentence
+        return target_seq
 
     def predict(self, load_weights = False, **data):
         '''
@@ -96,7 +92,7 @@ class Model(Base):
         x_data = self.data.predict_data(**data)
         que_x, que_len = x_data
 
-        predict = self.decode_sequence(que_x,max_decode_seq_length=256)
+        predict = self.decode_sequence(que_x,max_decode_seq_length=max_ans_seq_len_predict)
 
         return self.data.to_categorys(predict)
 
