@@ -9,15 +9,15 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateSchedule
 
 from config import ans_dict
 from data_helper import process_ans_batch
-from model import Model
+from model import QAModel
 from utilities import data_split
 from path import *
 '''
 项目中的超参
 '''
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=10, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=64, type=int, help="batch size")
+parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
+parser.add_argument("-b", "--BATCH", default=3, type=int, help="batch size")
 parser.add_argument("-vb", "--VAL_BATCH", default=64, type=int, help="val batch size")
 args = parser.parse_args()
 
@@ -27,7 +27,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=args.VAL_BATCH)
-model = Model(dataset)
+model = QAModel(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())
@@ -69,8 +69,11 @@ def gen_batch_data(dataset, x,y, batch_size):
         x_batch, x_batch_len = dataset.processor_x(x_batch)
         y_batch, y_batch_len = dataset.processor_y(y_batch)
         y_batch = process_ans_batch(y_batch, ans_dict, int(sorted(list(y_batch_len), reverse=True)[0]))
-
-        yield [x_batch, y_batch[0:y_batch.shape[0]-1]], y_batch[1:y_batch.shape[0]]
+        y_input_batch = y_batch[:, 0:y_batch.shape[1] - 1]
+        y_output_batch = y_batch[:, 1:y_batch.shape[1]]
+        y_output_batch = np.reshape(y_output_batch,
+                                    (y_output_batch.shape[0],y_output_batch.shape[1],1))
+        yield [x_batch, y_input_batch], y_output_batch
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 val_steps_per_epoch = math.ceil(val_len / args.BATCH)

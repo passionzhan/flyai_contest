@@ -1,12 +1,9 @@
 #!/usr/bin/env python 
 # encoding: utf-8
-
-import os
-import json
 import jieba
+import numpy as np
 
-from path import DATA_PATH
-from config import max_que_seq_len
+from config import load_dict as c_load_dict, max_que_seq_len
 
 def data_clean(text_line):
     text_line = str(text_line)
@@ -16,25 +13,7 @@ def data_clean(text_line):
 
 
 def load_dict():
-    que_dict_file = os.path.join(DATA_PATH, 'que.dict')
-    ans_dict_file = os.path.join(DATA_PATH, 'ans.dict')
-    with open(que_dict_file, 'r', encoding='UTF-8') as gf:
-        que_dict = json.load(gf)
-    with open(ans_dict_file, 'r', encoding='UTF-8') as pf:
-        ans_dict = json.load(pf)
-
-    # 将 '_pad_' 单词作为 第 0 个单词
-    que_idx2word = {v: k for k, v in que_dict.items()}
-    ans_idx2word = {v: k for k, v in ans_dict.items()}
-    pad_idx = que_dict['_pad_']
-    word0 = que_idx2word[0]
-    que_dict['_pad_'], que_dict[word0] = 0, pad_idx
-    que_idx2word[0], que_idx2word[pad_idx] = '_pad_', word0
-    pad_idx = ans_dict['_pad_']
-    word0 = ans_idx2word[0]
-    ans_dict['_pad_'], ans_dict[word0] = 0, pad_idx
-    ans_idx2word[0], ans_idx2word[pad_idx] = '_pad_', word0
-    return que_dict, ans_dict
+    return c_load_dict()
 
 
 def id2ans(ans_list, ans_dict):
@@ -86,7 +65,8 @@ def process_ans_batch(ans_batch, ans_dict, max_ans_len):
         else:
             line = line[:max_ans_len]
         ans_list.append(line)
-    return ans_list
+    ans_array = np.asarray(ans_list)
+    return ans_array
 
 
 if __name__ == "__main__":
