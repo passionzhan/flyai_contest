@@ -3,7 +3,6 @@
 from data_helper import *
 from flyai.processor.base import Base
 
-
 class Processor(Base):
     '''
     参数为csv中作为输入x的一条数据，该方法会被dataset.next_train_batch()

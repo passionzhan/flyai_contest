@@ -1,4 +1,5 @@
 flyai
+jieba
 numpy
 Pillow
 tensorflow
