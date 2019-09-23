@@ -86,7 +86,7 @@ train_gen   = gen_batch_data(dataset,x_train,y_train,args.BATCH)
 val_gen     = gen_batch_data(dataset,x_val,y_val,args.BATCH)
 
 checkpoint = ModelCheckpoint(model.model_path,
-                             monitor='val_categorical_accuracy',
+                             monitor='val_sparse_categorical_accuracy',
                              save_best_only=True,
                              save_weights_only=True,
                              verbose=1,

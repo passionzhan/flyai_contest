@@ -4,6 +4,7 @@ import numpy as np
 from flyai.model.base import Base
 from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
 from keras.models import Model
+from keras.metrics import sparse_categorical_accuracy
 from keras.optimizers import Adam
 
 from path import MODEL_PATH, QA_MODEL_DIR
@@ -28,7 +29,9 @@ def create_model():
 
     seq2seq_model = Model([encode_input, decode_input], decode_outputs)
 
-    seq2seq_model.compile(optimizer=Adam(lr=learning_rate, decay=1e-3), loss='sparse_categorical_crossentropy')
+    seq2seq_model.compile(optimizer=Adam(lr=learning_rate, decay=1e-3),
+                          loss='sparse_categorical_crossentropy',
+                          metrics=[sparse_categorical_accuracy])
 
     encode_model = Model(encode_input, encode_state)
     decode_state_input_h1 = Input(shape=(hide_dim,))
@@ -54,7 +57,7 @@ class QAModel(Base):
 
     def decode_sequence(self, input_seq, max_decode_seq_length=max_ans_seq_len_predict,):
         # Encode the input as state vectors.
-        states_value = self.encode_model.predict(input_seq)
+        states_value = self.encodeModel.predict(input_seq)
 
         # Generate empty target sequence of length 1.
         target_seq = np.zeros((1, 1))
@@ -68,7 +71,7 @@ class QAModel(Base):
         # (to simplify, here we assume a batch of size 1).
         stop_condition = False
         while not stop_condition:
-            output_tokens, h1, h2, c1, c2 = self.decode_model.predict([target_seq] + states_value)
+            output_tokens, h1, h2, c1, c2 = self.decodeModel.predict([target_seq] + states_value)
 
             # Sample a token
             sampled_word_index = np.argmax(output_tokens[0, -1, :])
@@ -89,7 +92,7 @@ class QAModel(Base):
             # 状态更新
             states_value = [h1, h2, c1, c2]
 
-        return target_seq_output
+        return [target_seq_output]
 
     def predict(self, load_weights = False, **data):
         '''

@@ -2,5 +2,6 @@ flyai
 jieba
 numpy
 Pillow
+git+https://github.com/keras-team/keras.git@master
 tensorflow
-keras
+

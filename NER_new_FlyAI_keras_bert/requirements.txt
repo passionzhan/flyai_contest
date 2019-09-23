@@ -1,5 +1,6 @@
 keras-bert
-numpy
-tensorflow
 flyai
-keras==2.2.4
+numpy
+git+https://github.com/keras-team/keras.git@2.2.4
+tensorflow
+
