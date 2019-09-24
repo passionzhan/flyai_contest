@@ -1,7 +1,7 @@
 flyai
 numpy
-https://codeload.github.com/CyberZHG/keras-bert/zip/master
-https://codeload.github.com/keras-team/keras/zip/2.2.4
+keras-bert
+https://codeload.github.com/keras-team/keras/zip/master
 tensorflow
 
 

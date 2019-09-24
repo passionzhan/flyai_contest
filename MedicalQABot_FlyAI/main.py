@@ -9,7 +9,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateSchedule
 
 from config import ans_dict
 from data_helper import process_ans_batch
-from model import QAModel
+from model import Model
 from utilities import data_split
 from path import *
 '''
@@ -27,7 +27,7 @@ flyai库中的提供的数据处理方法
 传入整个数据训练多少轮，每批次批大小
 '''
 dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH, val_batch=args.VAL_BATCH)
-model = QAModel(dataset)
+model = Model(dataset)
 
 print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())

@@ -3,7 +3,7 @@
 import numpy as np
 from flyai.model.base import Base
 from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
-from keras.models import Model
+from keras.models import Model as kModel
 from keras.metrics import sparse_categorical_accuracy
 from keras.optimizers import Adam
 
@@ -27,13 +27,13 @@ def create_model():
     decode_dense_layer = Dense(decode_vocab_size, activation='softmax')
     decode_outputs = decode_dense_layer(decode_o)
 
-    seq2seq_model = Model([encode_input, decode_input], decode_outputs)
+    seq2seq_model = kModel([encode_input, decode_input], decode_outputs)
 
     seq2seq_model.compile(optimizer=Adam(lr=learning_rate, decay=1e-3),
                           loss='sparse_categorical_crossentropy',
                           metrics=[sparse_categorical_accuracy])
 
-    encode_model = Model(encode_input, encode_state)
+    encode_model = kModel(encode_input, encode_state)
     decode_state_input_h1 = Input(shape=(hide_dim,))
     decode_state_input_c1 = Input(shape=(hide_dim,))
     decode_state_input_h2 = Input(shape=(hide_dim,))
@@ -42,10 +42,10 @@ def create_model():
     decode_outputs, decode_h1, decode_h2, decode_c1, decode_c2 = \
         decode_BiLSTM_layer(decode_embedding_layer(decode_input),initial_state=decode_states)
     decode_outputs = decode_dense_layer(decode_outputs)
-    decode_model = Model([decode_input] + decode_states,[decode_outputs,decode_h1, decode_h2, decode_c1, decode_c2])
+    decode_model = kModel([decode_input] + decode_states,[decode_outputs,decode_h1, decode_h2, decode_c1, decode_c2])
     return seq2seq_model, encode_model, decode_model
 
-class QAModel(Base):
+class Model(Base):
     def __init__(self, data):
         self.data = data
         self.model_path = os.path.join(MODEL_PATH, QA_MODEL_DIR)
