@@ -43,7 +43,7 @@ class Processor(Base):
                 break
         return label
 
-    def processXY(self, x,y, max_seq_len=128):
+    def processXY(self, x, y, max_seq_len=128):
         '''
         执行 判决 、 裁定 滥用职权 罪, B-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME
         将上述数据转化为：
@@ -54,6 +54,15 @@ class Processor(Base):
         '''
         y = y.split(' ')
         x_list = x.split(' ')
+        try:
+            assert len(y) == len(x_list)
+        except:
+            print(y + x_list)
+            if len(y) < len(x_list):
+                y += ['O',]*(len(x_list) - len(y))
+            else:
+                y = y[0:len(x_list)]
+
         # y = y[]
         rst_y = []
         for i, word in enumerate(x_list):
@@ -87,7 +96,10 @@ class Processor(Base):
         rst_y = []
         for i, word in enumerate(data_list):
             i_word = 0
-            assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+            try:
+                assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+            except:
+                print(word[i_word:len(x_char[yi])+i_word] + "==" + x_char[yi])
             if y[yi][0] == 'B':
                 if pre_tag == y[yi]:# 和前一个相同，则改成I
                     rst_y.append('I'+y[yi][1:])
@@ -103,7 +115,15 @@ class Processor(Base):
                 if i_word >= len(word):
                     break
                 else:
-                    assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+                    try:
+                        assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
+                    except:
+                        print("in_loop:" + word[i_word:len(x_char[yi])+i_word] + "==" + x_char[yi])
+
+        if len(rst_y) < len(data_list):
+            rst_y += ['O',]*(len(data_list)-len(rst_y))
+        else:
+            rst_y = rst_y[0:len(data_list)]
         return rst_y
 
 
