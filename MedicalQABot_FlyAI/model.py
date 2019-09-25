@@ -82,7 +82,7 @@ class Model(Base):
 
             if output_len == 0:
                 topk_sampled_word = arg_topk[0, :]
-                target_seq_output = np.array([topk_sampled_word])
+                target_seq_output = topk_sampled_word.reshap((topk,1))
                 pre_score = []
                 for idx in topk_sampled_word:
                     pre_score.append([output_tokens[0,idx]]*topk)
@@ -90,8 +90,14 @@ class Model(Base):
                 target_seq  = topk_sampled_word.reshape((topk,1))
                 h1, h2, c1, c2 = h1, h2, c1, c2
             else:
-                cur_score = pre_score * output_tokens[arg_topk]
-                cur_top_arg = cur_score.argmax()
+                cur_score = pre_score * np.sort(output_tokens, axis=-1)[:, -topk:],
+                maxIdx = np.unravel_index(cur_score.argsort(axis=None)[-topk:],cur_score.shape)
+                pre_score = np.tile(cur_score[maxIdx].reshape((topk,1)),(1,topk))
+                target_seq = arg_topk[maxIdx].reshape((topk,1))
+                target_seq_output = np.concatenate((target_seq_output, target_seq),axis=-1)
+                h1, h2, c1, c2 = h1[maxIdx[0],:], h2[maxIdx[0],:], c1[maxIdx[0],:], c2[maxIdx[0],:]
+
+
 
             output_len += 1
             #
@@ -113,6 +119,7 @@ class Model(Base):
 
             # 状态更新
             states_value = [h1, h2, c1, c2]
+
 
         return [target_seq_output]
 
