@@ -39,6 +39,15 @@ ner_model.summary()
 
 x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
 
+processor = Processor()
+for iLoop in range(len(x_train)):
+    y_processed = processor.processXY(x_train[iLoop]['source'], y_train[iLoop]['target'], max_seq_len=config.max_sequence)
+    y_train[iLoop]['target'] = y_processed
+
+for iLoop in range(len(x_val)):
+    y_processed = processor.processXY(x_val[iLoop]['source'], y_val[iLoop]['target'], max_seq_len=config.max_sequence)
+    y_val[iLoop]['target'] = y_processed
+
 # x_train     = dataset.processor_x(x_train)
 # x_val       = dataset.processor_x(x_val)
 # y_train     = dataset.processor_y(y_train)
@@ -71,10 +80,10 @@ def gen_batch_data(dataset, x,y,batch_size, max_seq_len=256):
         x_batch = x[bi:ei]
         y_batch = y[bi:ei]
 
-        for iLoop in range(len(x_batch)):
-            y_processed = prcossor.processXY(x_batch[iLoop]['source'],y_batch[iLoop]['target'],max_seq_len=max_seq_len)
-            #print(y_processed)
-            y_batch[iLoop]['target'] = y_processed
+        # for iLoop in range(len(x_batch)):
+        #     y_processed = prcossor.processXY(x_batch[iLoop]['source'],y_batch[iLoop]['target'],max_seq_len=max_seq_len)
+        #     #print(y_processed)
+        #     y_batch[iLoop]['target'] = y_processed
         # processor_x   返回的是list 构成的np.array
         x_batch = dataset.processor_x(x_batch)
         y_batch = dataset.processor_y(y_batch)

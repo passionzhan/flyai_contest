@@ -87,7 +87,9 @@ class Processor(Base):
         return " ".join(rst_y)
 
     def processedOutput(self, text, x, y):
-        x_char = [self.token_dict_inv[idx] for idx in x]
+        x_char = tokenizer.tokenize(text)
+        #以下这种方式导致词典里没有的词还原不回来了，最后导致出错。
+        # x_char = [self.token_dict_inv[idx] for idx in x]
 
         x_char = x_char[1:-1] #去掉首尾
         data_list = text.split(" ")
