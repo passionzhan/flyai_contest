@@ -78,39 +78,45 @@ class Model(Base):
         while not stop_condition:
             output_tokens, h1, h2, c1, c2 = self.decodeModel.predict([target_seq] + states_value)
             output_tokens = output_tokens.reshape((topk,-1))
+
+            # 当上次输出中有结束符 ‘_eos_’ 时，将该样本输出'_sos_'的概率置为最大1.0
+            for i, word in enumerate(target_seq[:,0]):
+                if word == ans_dict['_eos_']:
+                    output_tokens[i,ans_dict['_eos_']] = 1.0
+
             arg_topk = output_tokens.argsort(axis=-1)[:, -topk:]  # 每一项选出topk
 
             if output_len == 0:
                 topk_sampled_word = arg_topk[0, :]
-                target_seq_output = topk_sampled_word.reshap((topk,1))
+                target_seq_output = topk_sampled_word.reshape((topk,1))
                 pre_score = []
                 for idx in topk_sampled_word:
                     pre_score.append([output_tokens[0,idx]]*topk)
                 pre_score = np.asarray(pre_score)
+                # 取对数防止向下溢出
+                pre_score = np.log(pre_score)
                 target_seq  = topk_sampled_word.reshape((topk,1))
                 h1, h2, c1, c2 = h1, h2, c1, c2
             else:
-                cur_score = pre_score * np.sort(output_tokens, axis=-1)[:, -topk:],
-                maxIdx = np.unravel_index(cur_score.argsort(axis=None)[-topk:],cur_score.shape)
+                # pre_score
+                # 取对数防止向下溢出
+                # 利用对数计算，乘法该+法
+                tmp_cur_score = np.log(np.sort(output_tokens, axis=-1)[:, -topk:])
+                cur_score = pre_score + tmp_cur_score
+                # cur_score = np.log(cur_score)
+                maxIdx = np.unravel_index(np.argsort(cur_score, axis=None)[-topk:],cur_score.shape)
                 pre_score = np.tile(cur_score[maxIdx].reshape((topk,1)),(1,topk))
                 target_seq = arg_topk[maxIdx].reshape((topk,1))
                 target_seq_output = np.concatenate((target_seq_output, target_seq),axis=-1)
                 h1, h2, c1, c2 = h1[maxIdx[0],:], h2[maxIdx[0],:], c1[maxIdx[0],:], c2[maxIdx[0],:]
 
-
-
             output_len += 1
-            #
-            # # Sample a token
-            # sampled_word_index = np.argmax(output_tokens[0, -1, :])
-            # sampled_word = [sampled_word_index]
-
-            # output_len += 1
+            # sampled_word == '_sos_' or
             # Exit condition: either hit max length
             # or find stop character.
-            # if (sampled_word == '_sos_' or
-            #         len(target_seq_output) > max_decode_seq_length):
-            #     stop_condition = True
+            if (target_seq_output.shape[1] >= max_decode_seq_length
+                    or (target_seq == ans_dict['_eos_'] * np.ones((topk,1))).all()):
+                stop_condition = True
             #
             # # Add the sampled character to the sequence
             # target_seq[0, 0] = sampled_word_index
@@ -120,8 +126,15 @@ class Model(Base):
             # 状态更新
             states_value = [h1, h2, c1, c2]
 
+        maxIdx = np.unravel_index(np.argmax(cur_score,axis=None), cur_score.shape)
+        target_seq = arg_topk[maxIdx].reshape((1,))
 
-        return [target_seq_output]
+        target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:],target_seq),axis=-1).reshape(1,-1)
+        for i, word in enumerate(target_seq_output[0,:]):
+            if word == ans_dict['_eos_']:
+                break
+        target_seq_output = target_seq_output[:,0:i]
+        return target_seq_output
 
     def predict(self, load_weights = False, **data):
         '''

@@ -48,9 +48,9 @@ class Processor(Base):
         执行 判决 、 裁定 滥用职权 罪, B-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME
         将上述数据转化为：
         执 行 判 决 、 裁 定 滥 用 职 权 罪, B-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME I-CRIME
-        :param x: 
-        :param y: 
-        :return: 
+        :param x:
+        :param y:
+        :return:
         '''
         y = y.split(' ')
         x_list = x.split(' ')
@@ -91,43 +91,56 @@ class Processor(Base):
         #以下这种方式导致词典里没有的词还原不回来了，最后导致出错。
         # x_char = [self.token_dict_inv[idx] for idx in x]
 
-        x_char = x_char[1:-1] #去掉首尾
-        data_list = text.split(" ")
-        yi = 0
-        pre_tag = 'O'
-        rst_y = []
-        for i, word in enumerate(data_list):
-            i_word = 0
-            try:
-                assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
-            except:
-                print(word[i_word:len(x_char[yi])+i_word] + "==" + x_char[yi])
-            if y[yi][0] == 'B':
-                if pre_tag == y[yi]:# 和前一个相同，则改成I
-                    rst_y.append('I'+y[yi][1:])
+        try:
+            x_char = x_char[1:-1] #去掉首尾
+            data_list = text.split(" ")
+            yi = 0
+            pre_tag = 'O'
+            rst_y = []
+            for i, word in enumerate(data_list):
+                if yi >= len(y):
+                    break
+                i_word = 0
+                try:
+                    assert word[i_word:len(x_char[yi])+i_word].lower() == x_char[yi]
+                except:
+                    print(word[i_word:len(x_char[yi]) + i_word] + "==" + x_char[yi])
+                      # 处理token 分词时自动添加的##
+                    if x_char[yi][0:2] == "##":
+                        x_char[yi] = x_char[yi][2:]
+
+                if y[yi][0] == 'B':
+                    if pre_tag == y[yi]:# 和前一个相同，则改成I
+                        rst_y.append('I'+y[yi][1:])
+                    else:
+                        rst_y.append(y[yi])
                 else:
                     rst_y.append(y[yi])
-            else:
-                rst_y.append(y[yi])
 
-            pre_tag = rst_y[-1]
-            while True:
-                i_word += len(x_char[yi])
-                yi += 1
-                if i_word >= len(word):
-                    break
-                else:
-                    try:
-                        assert word[i_word:len(x_char[yi])+i_word] == x_char[yi]
-                    except:
-                        print("in_loop:" + word[i_word:len(x_char[yi])+i_word] + "==" + x_char[yi])
+                pre_tag = rst_y[-1]
+                while True:
+                    i_word += len(x_char[yi])
+                    yi += 1
+                    if i_word >= len(word):
+                        break
+                    else:
+                        try:
+                            assert word[i_word:len(x_char[yi])+i_word].lower() == x_char[yi]
+                        except:
+                            print("in_loop:" + word[i_word:len(x_char[yi])+i_word] + "==" + x_char[yi])
+                            #   处理token 分词时自动添加的##
+                            if x_char[yi][0:2] == "##":
+                                x_char[yi] = x_char[yi][2:]
+        except:
+            print("原始句子{0}, 原始词长度:{1}, token句子{2}， token长度：{3}, 预测长度：{4}"
+                  .format(text, len(text.split(" "))," ".join(x_char), len(x_char),len(y)))
 
         if len(rst_y) < len(data_list):
             rst_y += ['O',]*(len(data_list)-len(rst_y))
         else:
             rst_y = rst_y[0:len(data_list)]
-        return rst_y
 
+        return rst_y
 
 if __name__ == '__main__':
     x = '今年年初 ， 邹士贵 老人 从 箱底 意外 地 翻出 了 一份 他于 1951 年 12 月 1 日 缴纳 人民币 5000 元 （ 旧币 ， 相当于 现在 的 0.5 元 ） 、 投保 20 年期 、 保险金额 为 113 万元 （ 相当于 现在 的 113 元 ） 的 简易 人身 保险单 。'
@@ -147,7 +160,7 @@ if __name__ == '__main__':
 
 
 
-        
+
 
 
 
