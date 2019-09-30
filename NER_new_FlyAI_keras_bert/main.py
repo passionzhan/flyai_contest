@@ -110,7 +110,7 @@ checkpoint = ModelCheckpoint(model.model_path,
                              save_weights_only=True,
                              verbose=1,
                              mode='max')
-earlystop = EarlyStopping(patience=2,)
+earlystop = EarlyStopping(patience=5,)
 lrs = LearningRateScheduler(lambda epoch, lr, : 0.9*lr, verbose=1)
 
 if not os.path.exists(MODEL_PATH):
@@ -118,7 +118,7 @@ if not os.path.exists(MODEL_PATH):
 
 ner_model.fit_generator(generator=train_gen, steps_per_epoch=steps_per_epoch,
                         epochs=args.EPOCHS,validation_data=val_gen, validation_steps= val_steps_per_epoch,
-                        # validation_freq=1,
+                        validation_freq=1,
                         callbacks=[checkpoint, earlystop, lrs])
 
 # # max_val_acc, min_loss = 0, float('inf')

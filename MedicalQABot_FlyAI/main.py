@@ -91,7 +91,7 @@ checkpoint = ModelCheckpoint(model.model_path,
                              save_weights_only=True,
                              verbose=1,
                              mode='max')
-earlystop = EarlyStopping(patience=1,)
+earlystop = EarlyStopping(patience=10,)
 lrs = LearningRateScheduler(lambda epoch, lr, : 0.9*lr, verbose=1)
 cbs = [checkpoint, earlystop, lrs]
 
