@@ -8,8 +8,9 @@ import numpy as np
 
 from path import *
 from bert4keras.utils import SimpleTokenizer, load_vocab
+from config import *
 
-token_dict = load_vocab()
+token_dict = load_vocab(VOCAB_FILE)
 tokenizer = SimpleTokenizer(token_dict) # 建立分词器
 
 def data_clean(text_line):
@@ -17,16 +18,6 @@ def data_clean(text_line):
     if not text_line[0].isalpha():
         text_line = text_line[1:].strip()
     return text_line.strip()
-
-
-def load_dict():
-    token_dict = {}
-    with codecs.open(VOCAB_FILE, 'r', 'utf8') as reader:
-        for line in reader:
-            token = line.strip()
-            token_dict[token] = len(token_dict)
-    tokenizer = Tokenizer(token_dict)
-    return c_load_dict()
 
 
 def id2ans(ans_list, ans_dict):

@@ -46,7 +46,9 @@ que_dict, ans_dict = load_dict()
 # endregion
 
 max_que_seq_len             = 128
+
 max_ans_seq_len_predict     = 128
+max_seq_len                 = 256
 hide_dim                    = 512
 eDim                        = 200
 # Embedding Size
@@ -55,6 +57,8 @@ decoding_embedding_size     = 64
 # Learning Rate
 learning_rate               = 0.01
 DROPOUT_RATE                = 0.2
+
+IGNORE_WORD_IDX             = 102
 
 encode_vocab_size           = len(que_dict)
 decode_vocab_size           = len(ans_dict)
