@@ -35,7 +35,7 @@ def create_model():
     cross_entropy = K.sum(cross_entropy * y_mask) / K.sum(y_mask)
 
     bert4nlg_model.add_loss(cross_entropy)
-    bert4nlg_model.compile(optimizer=Adam(1e-5),)
+    bert4nlg_model.compile(optimizer=Adam(learning_rate),)
 
     return bert4nlg_model
 
