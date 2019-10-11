@@ -1,0 +1,7 @@
+flyai
+jieba
+numpy
+Pillow
+https://codeload.github.com/keras-team/keras/zip/master
+tensorflow
+
