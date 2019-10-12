@@ -107,7 +107,7 @@ class Model(Base):
                 maxIdx = np.unravel_index(np.argsort(cur_score, axis=None)[-topk:],cur_score.shape)
                 pre_score = np.tile(cur_score[maxIdx].reshape((topk,1)),(1,topk))
                 target_seq = arg_topk[maxIdx].reshape((topk,1))
-                target_seq_output = np.concatenate((target_seq_output, target_seq),axis=-1)
+                target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:], target_seq),axis=-1)
                 h1, h2, c1, c2 = h1[maxIdx[0],:], h2[maxIdx[0],:], c1[maxIdx[0],:], c2[maxIdx[0],:]
 
             output_len += 1
@@ -126,10 +126,8 @@ class Model(Base):
             # 状态更新
             states_value = [h1, h2, c1, c2]
 
-        maxIdx = np.unravel_index(np.argmax(cur_score,axis=None), cur_score.shape)
-        target_seq = arg_topk[maxIdx].reshape((1,))
-
-        target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:],target_seq),axis=-1).reshape(1,-1)
+        #  target_seq_output 已按输出概率值排好序，升序排列
+        target_seq_output = target_seq_output[-1,:].reshape(1,-1)
         for i, word in enumerate(target_seq_output[0,:]):
             if word == ans_dict['_eos_']:
                 break

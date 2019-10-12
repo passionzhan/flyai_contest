@@ -2,16 +2,11 @@
 
 import numpy as np
 from flyai.model.base import Base
-from keras.layers import Input, Embedding, LSTM, Dense, Bidirectional
-from keras.models import Model as kModel
-from keras.metrics import sparse_categorical_accuracy
 from keras.optimizers import Adam
 
 from bert4keras.bert import load_pretrained_model
 from keras import backend as K
-from bert4keras.utils import SimpleTokenizer, load_vocab
 
-from path import MODEL_PATH, QA_MODEL_DIR
 from data_helper import tokenizer,token_dict
 from config import *
 
@@ -21,10 +16,9 @@ def create_model():
         BERT_CKPT,
         seq2seq=True,
         keep_words=None,
-
     )
 
-    bert4nlg_model.summary()
+    # bert4nlg_model.summary()
 
     # 交叉熵作为loss，并mask掉输入部分的预测
     #  由于输入中，没有传入实际的 Y 值，所以各种准确度度量不起作用
@@ -52,42 +46,43 @@ class Model(Base):
     # 基于beam reseach的解码
     def decode_sequence(self, input_seq, max_decode_seq_length=max_ans_seq_len_predict,topk=3):
         token_ids, segment_ids = tokenizer.encode(input_seq[:max_seq_len-2])
-        # Encode the input as state vectors.
         input_seq = np.tile(token_ids,(topk,1))
         input_seg = np.tile(segment_ids,(topk,1))
 
-        # target_seq  = np.array([[]] * topk,dtype=input_seq.dtype)
-        # target_seq_output  = np.array([[]] * topk)
         pre_score   = np.array([[0.]*topk]*topk)
 
-        # Sampling loop for a batch of sequences
-        # (to simplify, here we assume a batch of size 1).
         stop_condition = False
         target_seq = None
         target_seq_output = None
         while not stop_condition:
             output_tokens = self.bert4nlg_model.predict([input_seq,input_seg])[:,-1,IGNORE_WORD_IDX:]
 
-            # 当上次输出中有结束符 ‘[SEP]’ 时，将该样本输出'[SEP]'的概率置为最大1.0
-            if target_seq is not None:
-                for i, word in enumerate(target_seq[:,0]):
-                    if word == token_dict['[SEP]']:
-                        output_tokens[i,token_dict['[SEP]'] - IGNORE_WORD_IDX] = 1.0
-
             arg_topk = output_tokens.argsort(axis=-1)[:, -topk:]  # 每一项选出topk
 
-            # pre_score
-            # 取对数防止向下溢出
-            # 利用对数计算，乘法改+法
-            tmp_cur_score = np.log(np.sort(output_tokens, axis=-1)[:, -topk:])
-            cur_score = pre_score + tmp_cur_score
-            maxIdx = np.unravel_index(np.argsort(cur_score, axis=None)[-topk:],cur_score.shape)
-            pre_score = np.tile(cur_score[maxIdx].reshape((topk,1)),(1,topk))
-            target_seq  = arg_topk[maxIdx].reshape((topk,1)) + IGNORE_WORD_IDX
-            if target_seq_output is None:
+            #首次输出，三个样本一样，所以取第一个样本topk就行
+            if target_seq is None:
+                target_seq = arg_topk[0, :].reshape((topk,1)) + IGNORE_WORD_IDX
+                tmp_cur_score = np.log(np.sort(output_tokens[0,:], axis=-1)[-topk:])
+                tmp_cur_score = np.tile(tmp_cur_score.reshape((topk,1)),(1,topk))
+                cur_score = pre_score + tmp_cur_score
+                pre_score = cur_score
                 target_seq_output = target_seq
+
             else:
-                target_seq_output = np.concatenate((target_seq_output,target_seq),axis=-1)
+                # 当上次输出中有结束符 ‘[SEP]’ 时，将该样本输出'[SEP]'的概率置为最大1.0
+                for i, word in enumerate(target_seq[:, 0]):
+                    if word == token_dict['[SEP]']:
+                        output_tokens[i, token_dict['[SEP]'] - IGNORE_WORD_IDX] = 1.0
+                # pre_score
+                # 取对数防止向下溢出
+                # 利用对数计算，乘法改+法
+                tmp_cur_score = np.log(np.sort(output_tokens, axis=-1)[:, -topk:])
+                cur_score = pre_score + tmp_cur_score
+                maxIdx = np.unravel_index(np.argsort(cur_score, axis=None)[-topk:],cur_score.shape)
+                pre_score = np.tile(cur_score[maxIdx].reshape((topk,1)),(1,topk))
+                target_seq  = arg_topk[maxIdx].reshape((topk,1)) + IGNORE_WORD_IDX
+
+                target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:],target_seq),axis=-1)
 
             if (target_seq_output.shape[1] >= max_decode_seq_length
                     or (target_seq == token_dict['[SEP]'] * np.ones((topk,1))).all()):
@@ -97,11 +92,12 @@ class Model(Base):
             input_seq = np.concatenate((input_seq,target_seq),axis=-1)
             input_seg = np.concatenate((input_seg,targt_seg),axis=-1)
 
-
-        maxIdx = np.unravel_index(np.argmax(cur_score,axis=None), cur_score.shape)
-        target_seq = arg_topk[maxIdx].reshape((1,))
-
-        target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:],target_seq),axis=-1).reshape(1,-1)
+        print("==")
+        # 最后一行，概率最大
+        # maxIdx为元组，维数为 pre_score维度值
+        maxIdx = np.unravel_index(np.argmax(pre_score, axis=None), pre_score.shape)
+        print(maxIdx[0])
+        target_seq_output = target_seq_output[-1,:].reshape(1,-1)
         for i, word in enumerate(target_seq_output[0,:]):
             if word == token_dict['[SEP]']:
                 break
@@ -122,7 +118,7 @@ class Model(Base):
         return predict
 
     def predict_all(self, datas):
-        self.bert4nlg_modell.load_weights(self.model_path)
+        self.bert4nlg_model.load_weights(self.model_path)
         predictions = []
         for data in datas:
             prediction = self.predict(**data)
