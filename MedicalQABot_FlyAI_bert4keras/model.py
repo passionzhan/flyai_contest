@@ -3,12 +3,29 @@
 import numpy as np
 from flyai.model.base import Base
 from keras.optimizers import Adam
+import jieba
+from keras import backend as K
+from nltk.translate.bleu_score import sentence_bleu
 
 from bert4keras.bert import load_pretrained_model
-from keras import backend as K
 
 from data_helper import tokenizer,token_dict
 from config import *
+
+def bleu_score(y_output, y_true):
+    answer = y_true[0]
+    y_mask = y_true[1]
+    token_rst = np.argmax(y_output,axis=-1)
+    score = 0.
+    for i in range(y_output.shape[0]):
+        token_rst_list = list(token_rst[i][y_mask[i]==1])
+        cur_pred = tokenizer.decode(token_rst_list)
+        cur_pred = jieba.lcut(cur_pred)
+        cur_ans = jieba.lcut(answer[i])
+        print("当前预测的结构：%s" % cur_pred)
+        print("正确答案：%s" % cur_ans)
+        score += sentence_bleu(cur_pred,cur_ans)
+    return score/y_output.shape[0]
 
 def create_model():
     bert4nlg_model = load_pretrained_model(
@@ -29,7 +46,7 @@ def create_model():
     cross_entropy = K.sum(cross_entropy * y_mask) / K.sum(y_mask)
 
     bert4nlg_model.add_loss(cross_entropy)
-    bert4nlg_model.compile(optimizer=Adam(learning_rate),)
+    bert4nlg_model.compile(optimizer=Adam(learning_rate),metrics=[bleu_score,])
 
     return bert4nlg_model
 
@@ -69,10 +86,10 @@ class Model(Base):
                 target_seq_output = target_seq
 
             else:
-                # 当上次输出中有结束符 ‘[SEP]’ 时，将该样本输出'[SEP]'的概率置为最大1.0
+                # 当上次输出中有结束符 ‘[SEP]’ 时，将该样本输出'[SEP]' _sentence_end_token的概率置为最大1.0
                 for i, word in enumerate(target_seq[:, 0]):
-                    if word == token_dict['[SEP]']:
-                        output_tokens[i, token_dict['[SEP]'] - IGNORE_WORD_IDX] = 1.0
+                    if word == token_dict[sentence_end_token]:
+                        output_tokens[i, token_dict[sentence_end_token] - IGNORE_WORD_IDX] = 1.0
                 # pre_score
                 # 取对数防止向下溢出
                 # 利用对数计算，乘法改+法
@@ -85,7 +102,7 @@ class Model(Base):
                 target_seq_output = np.concatenate((target_seq_output[maxIdx[0],:],target_seq),axis=-1)
 
             if (target_seq_output.shape[1] >= max_decode_seq_length
-                    or (target_seq == token_dict['[SEP]'] * np.ones((topk,1))).all()):
+                    or (target_seq == token_dict[sentence_end_token] * np.ones((topk,1))).all()):
                 stop_condition = True
 
             targt_seg   = np.array([[1]] * topk,dtype=input_seg.dtype)
@@ -95,11 +112,11 @@ class Model(Base):
         print("==")
         # 最后一行，概率最大
         # maxIdx为元组，维数为 pre_score维度值
-        maxIdx = np.unravel_index(np.argmax(pre_score, axis=None), pre_score.shape)
-        print(maxIdx[0])
+        # maxIdx = np.unravel_index(np.argmax(pre_score, axis=None), pre_score.shape)
+        # print(maxIdx[0])
         target_seq_output = target_seq_output[-1,:].reshape(1,-1)
         for i, word in enumerate(target_seq_output[0,:]):
-            if word == token_dict['[SEP]']:
+            if word == token_dict[sentence_end_token]:
                 break
         target_seq_output = target_seq_output[:,0:i]
         return target_seq_output

@@ -6,29 +6,21 @@ import numpy as np
 from numpy import random
 from flyai.dataset import Dataset
 from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateScheduler
+import jieba
+from nltk.translate.bleu_score import sentence_bleu
 
-from data_helper import tokenizer
+from data_helper import tokenizer, token_dict
 from model import Model
 from utilities import data_split
 from path import *
 from config import *
 
-def show_result(model):
-    s1_que = u'最近一段时间脸上发红起一些像被蚊子咬的那种胞一样很痒但实际不是被蚊子咬的这是什么症状怎么治疗说我季节过敏或者毛细血管扩张想治疗好不知如何是好'
-    s1_ans = '看你说的这个症状，那看到是不排除是有过敏方面的原因引起的，这时可以吃上几天抗过敏的药物治疗看看效果也行的还有就是这段时间你饮食方面要清淡些才好，不要吃辛辣刺激性大的食物的，还有就是像海鲜类容易引起过敏的食物暂时也先不要吃才行'
-    s2_que = u'我试管移植第13天血值9。95，我已经停药了，可今天第19天我抽血血值又是42了，我这个不会是宫外孕吧，怎么办试管婴儿中我该继续观察血值，还是可以做B超观察了'
-    s2_ans = u'你的情况考虑是试管移植的情况你的情况一般情况考虑是进行复查是可以的，估计不会宫外孕的情况'
-
-    for s in [s1_que, s2_que]:
-        predict = model.decode_sequence(s)
-        predict = tokenizer.decode(predict[0])
-        print(predict)
 
 '''
 项目中的超参
 '''
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=22, type=int, help="train epochs")
+parser.add_argument("-e", "--EPOCHS", default=3, type=int, help="train epochs")
 parser.add_argument("-b", "--BATCH", default=3, type=int, help="batch size")
 parser.add_argument("-vb", "--VAL_BATCH", default=3, type=int, help="val batch size")
 args = parser.parse_args()
@@ -51,6 +43,28 @@ x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
 train_len   = x_train.shape[0]
 val_len     = x_val.shape[0]
 
+test_x_data = x_val[-args.BATCH:]
+test_y_data = y_val[-args.BATCH:]
+
+
+def show_result(model,):
+    #s1_que = u'最近一段时间脸上发红起一些像被蚊子咬的那种胞一样很痒但实际不是被蚊子咬的这是什么症状怎么治疗说我季节过敏或者毛细血管扩张想治疗好不知如何是好'
+    #s1_ans = '看你说的这个症状，那看到是不排除是有过敏方面的原因引起的，这时可以吃上几天抗过敏的药物治疗看看效果也行的还有就是这段时间你饮食方面要清淡些才好，不要吃辛辣刺激性大的食物的，还有就是像海鲜类容易引起过敏的食物暂时也先不要吃才行'
+    #s2_que = u'我试管移植第13天血值9。95，我已经停药了，可今天第19天我抽血血值又是42了，我这个不会是宫外孕吧，怎么办试管婴儿中我该继续观察血值，还是可以做B超观察了'
+    #s2_ans = u'你的情况考虑是试管移植的情况你的情况一般情况考虑是进行复查是可以的，估计不会宫外孕的情况'
+#
+    score = 0.0
+    for i, que in enumerate(test_x_data):
+        predict = model.decode_sequence(que['que_text'])
+        predict = tokenizer.decode(predict[0])
+        print("预测结果：%s"%predict)
+        print("实际答案：%s"%test_y_data[i]["ans_text"])
+        score += sentence_bleu([jieba.lcut(predict)],jieba.lcut(test_y_data[i]["ans_text"]),weights=(1., 0., 0., 0))
+
+    print("当前bleu得分：%f"% (score/test_x_data.shape[0]))
+
+
+
 def padding(x):
     """padding至batch内的最大长度
     """
@@ -71,7 +85,7 @@ def gen_batch_data(x,y, batch_size):
     y = y[indices]
     i = 0
 
-    x_batch, y_batch = [], []
+    x_batch, y_batch, answer = [], [], []
     while True:
         bi = i*batch_size
         ei = min(i*batch_size + batch_size,len(indices))
@@ -84,14 +98,17 @@ def gen_batch_data(x,y, batch_size):
             # 确保编码后也不超过max_seq_len
             x_      = x[idx]["que_text"][:max_seq_len-2]
             y_      = y[idx]["ans_text"][:max_seq_len-2]
-            x_, y_  = tokenizer.encode(x_, y_)
+            # 加入答案主要是为了评估进行模型选择用
+            #answer.append(y_)
+            x_, y_ = tokenizer.encode(x_, y_)
             x_batch.append(x_)
             y_batch.append(y_)
 
         x_batch = padding(x_batch)
         y_batch = padding(y_batch)
+        #answer  = np.array(answer)
         yield [x_batch, y_batch], None
-        x_batch, y_batch = [], []
+        x_batch, y_batch, answer = [], [], []
 
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 val_steps_per_epoch = math.ceil(val_len / args.BATCH)
@@ -116,12 +133,12 @@ class myModelCheckpoint(ModelCheckpoint):
         show_result(model)
 
 checkpoint = myModelCheckpoint(model.model_path,
-                             monitor='val_loss',
+                             monitor='val_bleu_score',
                              save_best_only=True,
                              save_weights_only=True,
                              verbose=1,
-                             mode='min')
-earlystop = EarlyStopping(monitor='val_loss',patience=5,verbose=1,)
+                             mode='max')
+earlystop = EarlyStopping(monitor='val_bleu_score',patience=6,verbose=1,)
 
 def changeLR(epoch, lr):
     if epoch < 10:

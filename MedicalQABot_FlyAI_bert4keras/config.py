@@ -62,3 +62,6 @@ IGNORE_WORD_IDX             = 102
 
 encode_vocab_size           = len(que_dict)
 decode_vocab_size           = len(ans_dict)
+
+sentence_end_token          = '[SEP]'
+sentence_sep_token          = '[SEP]'
