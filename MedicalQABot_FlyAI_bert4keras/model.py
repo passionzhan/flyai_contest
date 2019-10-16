@@ -109,7 +109,7 @@ class Model(Base):
             input_seq = np.concatenate((input_seq,target_seq),axis=-1)
             input_seg = np.concatenate((input_seg,targt_seg),axis=-1)
 
-        print("==")
+        # print("==")
         # 最后一行，概率最大
         # maxIdx为元组，维数为 pre_score维度值
         # maxIdx = np.unravel_index(np.argmax(pre_score, axis=None), pre_score.shape)

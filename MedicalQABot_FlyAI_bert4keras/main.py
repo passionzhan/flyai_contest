@@ -133,12 +133,12 @@ class myModelCheckpoint(ModelCheckpoint):
         show_result(model)
 
 checkpoint = myModelCheckpoint(model.model_path,
-                             monitor='val_bleu_score',
+                             monitor='val_loss',
                              save_best_only=True,
                              save_weights_only=True,
                              verbose=1,
-                             mode='max')
-earlystop = EarlyStopping(monitor='val_bleu_score',patience=6,verbose=1,)
+                             mode='min')
+earlystop = EarlyStopping(monitor='val_loss',patience=6,verbose=1,)
 
 def changeLR(epoch, lr):
     if epoch < 10:
