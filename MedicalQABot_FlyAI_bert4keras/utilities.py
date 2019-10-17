@@ -15,7 +15,7 @@ def label_smoothing(inputs, epsilon=0.1):
     :param epsilon:
     :return:
     '''
-    K = inputs.shape[-1] # number of class
+    K = int(inputs.shape[-1]) # number of class
     return ((1 - epsilon) * inputs) + (epsilon / K)
 
 

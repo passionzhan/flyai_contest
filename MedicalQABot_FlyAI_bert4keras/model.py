@@ -9,8 +9,9 @@ from nltk.translate.bleu_score import sentence_bleu
 
 from bert4keras.bert import load_pretrained_model
 
-from data_helper import tokenizer,token_dict
+from data_helper import myToken
 from config import *
+from utilities import label_smoothing
 
 def bleu_score(y_output, y_true):
     answer = y_true[0]
@@ -19,7 +20,7 @@ def bleu_score(y_output, y_true):
     score = 0.
     for i in range(y_output.shape[0]):
         token_rst_list = list(token_rst[i][y_mask[i]==1])
-        cur_pred = tokenizer.decode(token_rst_list)
+        cur_pred = myToken.get_tokenizer().decode(token_rst_list)
         cur_pred = jieba.lcut(cur_pred)
         cur_ans = jieba.lcut(answer[i])
         print("当前预测的结构：%s" % cur_pred)
@@ -32,7 +33,7 @@ def create_model():
         BERT_CONFIG,
         BERT_CKPT,
         seq2seq=True,
-        keep_words=None,
+        keep_words=myToken.get_token_dict()[1],
     )
 
     # bert4nlg_model.summary()
@@ -42,7 +43,9 @@ def create_model():
     y_in = bert4nlg_model.input[0][:, 1:]  # 目标tokens
     y_mask = bert4nlg_model.input[1][:, 1:]
     y = bert4nlg_model.output[:, :-1]  # 预测tokens，预测与目标错开一位
-    cross_entropy = K.sparse_categorical_crossentropy(y_in, y)
+    Y_in_one_hot = K.one_hot(K.cast(y_in,dtype="int32"), len(myToken.get_token_dict()[0]))
+    y_in_smoothing = label_smoothing(Y_in_one_hot,epsilon=0.3)
+    cross_entropy = K.categorical_crossentropy(y_in_smoothing, y)
     cross_entropy = K.sum(cross_entropy * y_mask) / K.sum(y_mask)
 
     bert4nlg_model.add_loss(cross_entropy)
@@ -61,8 +64,12 @@ class Model(Base):
             print('加载训练好的模型结束')
 
     # 基于beam reseach的解码
-    def decode_sequence(self, input_seq, max_decode_seq_length=max_ans_seq_len_predict,topk=3):
-        token_ids, segment_ids = tokenizer.encode(input_seq[:max_seq_len-2])
+    def decode_sequence(self, input_seq, max_decode_seq_length=max_ans_seq_len_predict,topk=2):
+        tokenizer = myToken.get_tokenizer()
+        token_dict = tokenizer._token_dict
+        IGNORE_WORD_IDX = token_dict[FIRST_VALIDED_TOKEN]
+
+        token_ids, segment_ids = tokenizer.encode(input_seq[:max_que_seq_len-2])
         input_seq = np.tile(token_ids,(topk,1))
         input_seg = np.tile(segment_ids,(topk,1))
 
@@ -131,7 +138,7 @@ class Model(Base):
         x_data = data["que_text"]
 
         predict = self.decode_sequence(x_data,max_decode_seq_length=max_ans_seq_len_predict)
-        predict = tokenizer.decode(predict[0])
+        predict = myToken.get_tokenizer().decode(predict[0])
         return predict
 
     def predict_all(self, datas):

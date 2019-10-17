@@ -2,6 +2,7 @@ flyai
 jieba
 numpy
 Pillow
+tqdm
 https://codeload.github.com/keras-team/keras/zip/master
 tensorflow
 

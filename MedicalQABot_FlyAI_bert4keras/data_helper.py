@@ -4,14 +4,81 @@ import codecs
 
 import jieba
 import numpy as np
-
-
-from path import *
+from flyai.dataset import Dataset
 from bert4keras.utils import SimpleTokenizer, load_vocab
+from path import *
 from config import *
+from tqdm import tqdm
 
-token_dict = load_vocab(VOCAB_FILE)
-tokenizer = SimpleTokenizer(token_dict) # 建立分词器
+def load_myvocab(dataset):
+    if os.path.exists(MY_VOCAB_FILE):
+        chars = json.load(open(MY_VOCAB_FILE, encoding='utf-8'))
+    else:
+        chars = {}
+        x_train, y_train, x_val, y_val = dataset.get_all_data()
+        x_data = np.concatenate((x_train, x_val))
+        y_data = np.concatenate((y_train, y_val))
+
+        for q in tqdm(x_data, desc=u'构建字表中_处理问题'):
+            for w in q["que_text"]:  # 纯文本，不用分词
+                chars[w] = chars.get(w, 0) + 1
+        for a in tqdm(y_data, desc=u'构建字表中_处理回答'):
+            for w in a["ans_text"]:  # 纯文本，不用分词
+                chars[w] = chars.get(w, 0) + 1
+
+        chars = [(char, count) for char, count in chars.items() if count >= min_count]
+        chars = sorted(chars, key=lambda c: - c[1])
+        chars = [c[0] for c in chars]
+        json.dump(
+            chars,
+            codecs.open(MY_VOCAB_FILE, 'w', encoding='utf-8'),
+            indent=4,
+            ensure_ascii=False
+        )
+
+    _token_dict = load_vocab(VOCAB_FILE)  # 读取词典
+    token_dict, keep_words = {}, []
+
+    for c in ['[PAD]', '[UNK]', '[CLS]', '[unused1]', '[SEP]']:
+        token_dict[c] = len(token_dict)
+        keep_words.append(_token_dict[c])
+
+    for c in chars:
+        if c in _token_dict:
+            token_dict[c] = len(token_dict)
+            keep_words.append(_token_dict[c])
+
+    return token_dict, keep_words
+
+class myToken():
+    dataset = None
+    token_dict = None
+    keep_words = None
+    tokenizer = None  # 建立分词器
+
+    @classmethod
+    def get_dataset(cls,):
+        if cls.dataset is not None:
+            return cls.dataset
+        else:
+            cls.dataset = Dataset(epochs=3, batch=3, val_batch=3)
+            return cls.dataset
+
+    @classmethod
+    def get_token_dict(cls,):
+        if (cls.token_dict is not None) and (cls.keep_words is not None):
+            return cls.token_dict, cls.keep_words
+        else:
+            cls.token_dict, cls.keep_words = load_myvocab(cls.get_dataset())
+            return cls.token_dict, cls.keep_words
+
+    @classmethod
+    def get_tokenizer(cls,):
+        if cls.tokenizer is not None:
+            return cls.tokenizer
+        else:
+            cls.tokenizer = SimpleTokenizer(cls.get_token_dict()[0])
+            return cls.tokenizer
 
 def data_clean(text_line):
     text_line = str(text_line)

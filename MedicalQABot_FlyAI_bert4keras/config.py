@@ -35,20 +35,21 @@ def load_dict():
 
 
 # region 词典构建
-que_dict, ans_dict = load_dict()
-# ans_sos_idx = ans_dict['_sos_']
-
-# # region 合并问题与答案词典
-# for k, v in ans_dict.items():
-#     que_dict.setdefault(k,len(que_dict))
-# ans_dict = que_dict
+# que_dict, ans_dict = load_dict()
+# # ans_sos_idx = ans_dict['_sos_']
+#
+# # # region 合并问题与答案词典
+# # for k, v in ans_dict.items():
+# #     que_dict.setdefault(k,len(que_dict))
+# # ans_dict = que_dict
+# # # endregion
 # # endregion
-# endregion
 
-max_que_seq_len             = 128
-
+min_count                   = 5
 max_ans_seq_len_predict     = 128
-max_seq_len                 = 256
+max_ans_seq_len             = 128
+max_que_seq_len             = 512 - max_ans_seq_len
+# max_seq_len                 = 256
 hide_dim                    = 512
 eDim                        = 200
 # Embedding Size
@@ -60,8 +61,10 @@ DROPOUT_RATE                = 0.2
 
 IGNORE_WORD_IDX             = 102
 
-encode_vocab_size           = len(que_dict)
-decode_vocab_size           = len(ans_dict)
+FIRST_VALIDED_TOKEN           = '[SEP]'
+# encode_vocab_size           = len(que_dict)
+# decode_vocab_size           = len(ans_dict)
 
 sentence_end_token          = '[SEP]'
 sentence_sep_token          = '[SEP]'
+

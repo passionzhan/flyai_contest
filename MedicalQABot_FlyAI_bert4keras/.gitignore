@@ -19,6 +19,7 @@ SceneClassification_FlyAI1111/
 *.so
 
 # Distribution / packaging
+data/
 .Python
 build/
 develop-eggs/
@@ -36,7 +37,6 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-data/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

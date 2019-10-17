@@ -9,7 +9,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateSchedule
 import jieba
 from nltk.translate.bleu_score import sentence_bleu
 
-from data_helper import tokenizer, token_dict
+from data_helper import myToken
 from model import Model
 from utilities import data_split
 from path import *
@@ -56,7 +56,7 @@ def show_result(model,):
     score = 0.0
     for i, que in enumerate(test_x_data):
         predict = model.decode_sequence(que['que_text'])
-        predict = tokenizer.decode(predict[0])
+        predict = myToken.get_tokenizer().decode(predict[0])
         print("预测结果：%s"%predict)
         print("实际答案：%s"%test_y_data[i]["ans_text"])
         score += sentence_bleu([jieba.lcut(predict)],jieba.lcut(test_y_data[i]["ans_text"]),weights=(1., 0., 0., 0))
@@ -96,11 +96,11 @@ def gen_batch_data(x,y, batch_size):
 
         for idx in range(bi,ei):
             # 确保编码后也不超过max_seq_len
-            x_      = x[idx]["que_text"][:max_seq_len-2]
-            y_      = y[idx]["ans_text"][:max_seq_len-2]
+            x_      = x[idx]["que_text"][:max_que_seq_len-3]
+            y_      = y[idx]["ans_text"][:max_ans_seq_len]
             # 加入答案主要是为了评估进行模型选择用
             #answer.append(y_)
-            x_, y_ = tokenizer.encode(x_, y_)
+            x_, y_ = myToken.get_tokenizer().encode(x_, y_)
             x_batch.append(x_)
             y_batch.append(y_)
 
@@ -138,7 +138,7 @@ checkpoint = myModelCheckpoint(model.model_path,
                              save_weights_only=True,
                              verbose=1,
                              mode='min')
-earlystop = EarlyStopping(monitor='val_loss',patience=6,verbose=1,)
+earlystop = EarlyStopping(monitor='val_loss',patience=4,verbose=1,)
 
 def changeLR(epoch, lr):
     if epoch < 10:
