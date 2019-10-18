@@ -10,10 +10,11 @@ import os
 
 import numpy as np
 from flyai.model.base import Base
-from keras.layers import Input, Lambda, Masking
+from keras.layers import Input, Lambda, Masking,Bidirectional, LSTM
 from keras_bert import load_trained_model_from_checkpoint
 from keras.optimizers import Adam
 from keras import Model as kerasModel
+import keras.backend as K
 from crf import CRF
 from crf_losses import crf_loss
 from crf_accuracies import crf_accuracy
@@ -24,7 +25,7 @@ import config
 
 
 # 得到训练和测试的数据
-BiRNN_UNITS     = 2 * 256   # BiLSTM 输出维数
+BiRNN_UNITS     = 768   # BiLSTM 输出维数
 EMBED_DIM       = config.embeddings_size      # 默认词向量的大小等于RNN(每个time step) 和 CNN(列) 中神经单元的个数, 为了避免混淆model中全部用unit_num表示。
 TIME_STEP       = config.max_sequence      # 每个句子的最大长度和time_step一样,为了避免混淆model中全部用time_step表示。
 DROPOUT_RATE    = config.dropout
@@ -74,14 +75,17 @@ class Model(Base):
 
         x = bert_model([x1_in, x2_in])
         x = Lambda(lambda x: x[:, 1:])(x)  # 取出每个单词对应的输出到CRF
-        x = Masking(mask_value=0, )(x)
+        #  加入双向LSTM网络
+        x = Bidirectional(LSTM(BiRNN_UNITS // 2, return_sequences=True, return_state=False, dropout=DROPOUT_RATE))(x)
+        # x = K.concatenate(x)
+        x = Masking(mask_value=0,)(x)
         rst = CRF(len(LABEL_DIC), sparse_target=True)(x)
 
         ner_model = kerasModel([x1_in, x2_in], rst)
         ner_model.compile(
             loss=crf_loss,
             metrics=[crf_accuracy],
-            optimizer=Adam(1e-5),  # 用足够小的学习率
+            optimizer=Adam(LEARN_RATE),  # 用足够小的学习率
         )
         return ner_model
 

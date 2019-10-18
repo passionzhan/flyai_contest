@@ -73,7 +73,8 @@ class BertModel(object):
         x, s = x_in, s_in
 
         # 自行构建Mask
-        sequence_mask = K.cast(K.greater(x, 0), 'float32')
+        sequence_mask = Lambda(lambda x: K.cast(K.greater(x, 0), 'float32'),
+                               name='Input-Mask')(x)
 
         # Embedding部分
         if self.embedding_size == self.hidden_size:
@@ -159,7 +160,12 @@ class BertModel(object):
             layers = input_layers
         # Self Attention
         xi = x
-        x = layers[0]([x, x, x], v_mask=sequence_mask, a_mask=attention_mask)
+        if attention_mask is None:
+            x = layers[0]([x, x, x, sequence_mask], v_mask=True)
+        else:
+            x = layers[0]([x, x, x, sequence_mask, attention_mask],
+                          v_mask=True,
+                          a_mask=True)
         if self.dropout_rate > 0:
             x = layers[1](x)
         x = layers[2]([xi, x])
@@ -282,21 +288,25 @@ class Bert4Seq2seq(BertModel):
         """为seq2seq采用特定的attention mask
         """
         if self.attention_mask is None:
-            s = segment_ids
-            seq_len = K.shape(s)[1]
-            ones = K.ones((1, self.num_attention_heads, seq_len, seq_len))
-            a_mask = tf.matrix_band_part(ones, -1, 0)
-            s_ex12 = K.expand_dims(K.expand_dims(s, 1), 2)
-            s_ex13 = K.expand_dims(K.expand_dims(s, 1), 3)
-            a_mask = (1 - s_ex13) * (1 - s_ex12) + s_ex13 * a_mask
-            a_mask = K.reshape(a_mask, (-1, seq_len, seq_len))
-            self.attention_mask = a_mask
+
+            def seq2seq_attention_mask(s):
+                seq_len = K.shape(s)[1]
+                ones = K.ones((1, self.num_attention_heads, seq_len, seq_len))
+                a_mask = tf.matrix_band_part(ones, -1, 0)
+                s_ex12 = K.expand_dims(K.expand_dims(s, 1), 2)
+                s_ex13 = K.expand_dims(K.expand_dims(s, 1), 3)
+                a_mask = (1 - s_ex13) * (1 - s_ex12) + s_ex13 * a_mask
+                a_mask = K.reshape(a_mask, (-1, seq_len, seq_len))
+                return a_mask
+
+            self.attention_mask = Lambda(seq2seq_attention_mask,
+                                         name='Attention-Mask')(segment_ids)
 
         return self.attention_mask
 
 
 def load_pretrained_model(config_path,
-                          checkpoint_file,
+                          checkpoint_file=None,
                           with_mlm=False,
                           seq2seq=False,
                           keep_words=None,
@@ -324,6 +334,8 @@ def load_pretrained_model(config_path,
                 block_sharing=albert)
 
     bert.build()
-    bert.load_weights_from_checkpoint(checkpoint_file)
+    
+    if checkpoint_file is not None:
+        bert.load_weights_from_checkpoint(checkpoint_file)
 
     return bert.model

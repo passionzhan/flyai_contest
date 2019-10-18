@@ -56,7 +56,7 @@ eDim                        = 200
 encoding_embedding_size     = 64
 decoding_embedding_size     = 64
 # Learning Rate
-learning_rate               = 1e-5
+learning_rate               = 1e-4
 DROPOUT_RATE                = 0.2
 
 IGNORE_WORD_IDX             = 102

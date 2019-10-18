@@ -14,7 +14,7 @@ from processor import Processor
 
 # 超参
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=1, type=int, help="train epochs")
+parser.add_argument("-e", "--EPOCHS", default=6, type=int, help="train epochs")
 parser.add_argument("-b", "--BATCH", default=6, type=int, help="batch size")
 args = parser.parse_args()
 # 数据获取辅助类
@@ -26,7 +26,7 @@ print("number of train examples:%d" % dataset.get_train_length())
 print("number of validation examples:%d" % dataset.get_validation_length())
 
 '''
-keras: bi-LSTM+CRF
+keras: bert-bi-LSTM+CRF
 '''
 
 
