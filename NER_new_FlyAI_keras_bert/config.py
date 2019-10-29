@@ -8,8 +8,8 @@ src_vocab_file = os.path.join(path.DATA_PATH,'words.dict')
 word_embedding_file = os.path.join(path.DATA_PATH,'embedding.json')
 embeddings_size = 200
 max_sequence = 200
-dropout = 0.2
-leanrate = 1e-5
+dropout = 0.3
+leanrate = (1e-5)*5
 
 with open(os.path.join(path.DATA_PATH,'words.dict'), 'r') as vocab_file:
     vocab_size = len(json.load(vocab_file))

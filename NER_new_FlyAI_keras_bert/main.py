@@ -110,7 +110,7 @@ checkpoint = ModelCheckpoint(model.model_path,
                              save_weights_only=True,
                              verbose=1,
                              mode='max')
-earlystop = EarlyStopping(patience=5,)
+earlystop = EarlyStopping(patience=20,)
 lrs = LearningRateScheduler(lambda epoch, lr, : 0.9*lr, verbose=1)
 
 if not os.path.exists(MODEL_PATH):
