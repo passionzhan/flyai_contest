@@ -5,7 +5,7 @@ import codecs
 import jieba
 import numpy as np
 from flyai.dataset import Dataset
-from bert4keras.utils import SimpleTokenizer, load_vocab
+from bert4keras.utils import Tokenizer, load_vocab
 from path import *
 from config import *
 from tqdm import tqdm
@@ -77,7 +77,7 @@ class myToken():
         if cls.tokenizer is not None:
             return cls.tokenizer
         else:
-            cls.tokenizer = SimpleTokenizer(cls.get_token_dict()[0])
+            cls.tokenizer = Tokenizer(cls.get_token_dict()[0])
             return cls.tokenizer
 
 def data_clean(text_line):

@@ -7,7 +7,7 @@ import jieba
 from keras import backend as K
 from nltk.translate.bleu_score import sentence_bleu
 
-from bert4keras.bert import load_pretrained_model
+from bert4keras.bert import build_bert_model
 
 from data_helper import myToken
 from config import *
@@ -29,12 +29,13 @@ def bleu_score(y_output, y_true):
     return score/y_output.shape[0]
 
 def create_model():
-    bert4nlg_model = load_pretrained_model(
-        BERT_CONFIG,
-        BERT_CKPT,
-        seq2seq=True,
-        keep_words=myToken.get_token_dict()[1],
-    )
+    bert4nlg_model = build_bert_model(BERT_CONFIG,
+         checkpoint_path=BERT_CKPT,
+         with_mlm=False,
+         application='seq2seq',
+         keep_words=myToken.get_token_dict()[1],
+         albert=False,
+         return_keras_model=True)
 
     # bert4nlg_model.summary()
 

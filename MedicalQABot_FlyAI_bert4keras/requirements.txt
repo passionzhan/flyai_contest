@@ -3,6 +3,7 @@ jieba
 numpy
 Pillow
 tqdm
+sentencepiece
 https://codeload.github.com/keras-team/keras/zip/master
 tensorflow
 

@@ -1,0 +1,10 @@
+flyai
+jieba
+numpy
+Pillow
+tqdm
+https://codeload.github.com/keras-team/keras/zip/master
+torch
+torchvision
+https://codeload.github.com/huggingface/transformers/zip/master
+tensorflow

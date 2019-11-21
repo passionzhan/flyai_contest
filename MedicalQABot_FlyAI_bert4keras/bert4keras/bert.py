@@ -1,25 +1,13 @@
 #! -*- coding: utf-8 -*-
 # 主要模型
 
-from .layers import *
+import numpy as np
+from bert4keras.layers import *
 from functools import partial
 import json
 
-gelu_version = 'erf'
 
-
-def get_gelu():
-    if gelu_version == 'erf':
-        return gelu_erf
-    else:
-        return gelu_tanh
-
-
-def set_gelu(version):
-    """提供gelu版本切换功能，默认为Erf版本
-    """
-    global gelu_version
-    gelu_version = version
+Model = keras.models.Model
 
 
 class BertModel(object):
@@ -36,6 +24,7 @@ class BertModel(object):
             intermediate_size,  # FeedForward的隐层维度
             hidden_act,  # FeedForward隐层的激活函数
             dropout_rate,  # Dropout比例
+            initializer_range=None,  # 权重初始化方差
             embedding_size=None,  # 是否指定embedding_size
             with_mlm=False,  # 是否包含MLM部分
             keep_words=None,  # 要保留的词ID列表
@@ -52,15 +41,16 @@ class BertModel(object):
         self.attention_head_size = hidden_size // num_attention_heads
         self.intermediate_size = intermediate_size
         self.dropout_rate = dropout_rate
+        if initializer_range:
+            self.initializer_range = initializer_range
+        else:
+            self.initializer_range = 0.02
         if embedding_size:
             self.embedding_size = embedding_size
         else:
             self.embedding_size = hidden_size
         self.with_mlm = with_mlm
-        if hidden_act == 'gelu':
-            self.hidden_act = get_gelu()
-        else:
-            self.hidden_act = hidden_act
+        self.hidden_act = hidden_act
         self.keep_words = keep_words
         self.block_sharing = block_sharing
         self.additional_outputs = []
@@ -74,33 +64,33 @@ class BertModel(object):
 
         # 自行构建Mask
         sequence_mask = Lambda(lambda x: K.cast(K.greater(x, 0), 'float32'),
-                               name='Input-Mask')(x)
+                               name='Sequence-Mask')(x)
 
         # Embedding部分
-        if self.embedding_size == self.hidden_size:
-            token_embedding = Embedding(input_dim=self.vocab_size,
-                                        output_dim=self.embedding_size,
-                                        name='Embedding-Token')
-        else:
-            token_embedding = FactorizedEmbedding(
-                input_dim=self.vocab_size,
-                hidden_dim=self.embedding_size,
-                output_dim=self.hidden_size,
-                name='Embedding-Token')
-        x = token_embedding(x)
+        x = Embedding(input_dim=self.vocab_size,
+                      output_dim=self.embedding_size,
+                      embeddings_initializer=self.initializer,
+                      name='Embedding-Token')(x)
         s = Embedding(input_dim=2,
-                      output_dim=self.hidden_size,
+                      output_dim=self.embedding_size,
+                      embeddings_initializer=self.initializer,
                       name='Embedding-Segment')(s)
         x = Add(name='Embedding-Token-Segment')([x, s])
         x = PositionEmbedding(input_dim=self.max_position_embeddings,
-                              output_dim=self.hidden_size,
+                              output_dim=self.embedding_size,
+                              merge_mode='add',
+                              embeddings_initializer=self.initializer,
                               name='Embedding-Position')(x)
+        x = LayerNormalization(name='Embedding-Norm')(x)
         if self.dropout_rate > 0:
             x = Dropout(rate=self.dropout_rate, name='Embedding-Dropout')(x)
-        x = LayerNormalization(name='Embedding-Norm')(x)
-        layers = None
+        if self.embedding_size != self.hidden_size:
+            x = Dense(self.hidden_size,
+                      kernel_initializer=self.initializer,
+                      name='Embedding-Mapping')(x)
 
         # 主要Transformer部分
+        layers = None
         for i in range(self.num_hidden_layers):
             attention_name = 'Encoder-%d-MultiHeadSelfAttention' % (i + 1)
             feed_forward_name = 'Encoder-%d-FeedForward' % (i + 1)
@@ -117,11 +107,13 @@ class BertModel(object):
 
         if self.with_mlm:
             # Masked Language Model 部分
-            x = Dense(self.hidden_size,
+            x = Dense(self.embedding_size,
                       activation=self.hidden_act,
+                      kernel_initializer=self.initializer,
                       name='MLM-Dense')(x)
             x = LayerNormalization(name='MLM-Norm')(x)
-            x = EmbeddingDense(token_embedding, name='MLM-Proba')(x)
+            x = EmbeddingDense(embedding_name='Embedding-Token',
+                               name='MLM-Proba')(x)
 
         if self.additional_outputs:
             self.model = Model([x_in, s_in], [x] + self.additional_outputs)
@@ -143,6 +135,7 @@ class BertModel(object):
             layers = [
                 MultiHeadAttention(heads=self.num_attention_heads,
                                    head_size=self.attention_head_size,
+                                   kernel_initializer=self.initializer,
                                    name=attention_name),
                 Dropout(rate=self.dropout_rate,
                         name='%s-Dropout' % attention_name),
@@ -150,6 +143,7 @@ class BertModel(object):
                 LayerNormalization(name='%s-Norm' % attention_name),
                 FeedForward(units=self.intermediate_size,
                             activation=self.hidden_act,
+                            kernel_initializer=self.initializer,
                             name=feed_forward_name),
                 Dropout(rate=self.dropout_rate,
                         name='%s-Dropout' % feed_forward_name),
@@ -161,6 +155,8 @@ class BertModel(object):
         # Self Attention
         xi = x
         if attention_mask is None:
+            x = layers[0]([x, x, x, sequence_mask], v_mask=True)
+        elif attention_mask is 'history_only':
             x = layers[0]([x, x, x, sequence_mask], v_mask=True)
         else:
             x = layers[0]([x, x, x, sequence_mask, attention_mask],
@@ -189,26 +185,46 @@ class BertModel(object):
         """
         return inputs
 
+    @property
+    def initializer(self):
+        """默认使用截断正态分布初始化
+        """
+        return keras.initializers.TruncatedNormal(
+            stddev=self.initializer_range)
+
     def load_weights_from_checkpoint(self, checkpoint_file):
         """从预训练好的Bert的checkpoint中加载权重
+        为了简化写法，对变量名的匹配引入了一定的模糊匹配能力。
         """
         model = self.model
-        loader = partial(tf.train.load_variable, checkpoint_file)
+        load_variable = lambda name: tf.train.load_variable(checkpoint_file, name)
+        variable_names = [n[0] for n in tf.train.list_variables(checkpoint_file)]
+        variable_names = [n for n in variable_names if 'adam' not in n]
+
+        def similarity(a, b, n=4):
+            # 基于n-grams的jaccard相似度
+            a = set([a[i: i + n] for i in range(len(a) - n)])
+            b = set([b[i: i + n] for i in range(len(b) - n)])
+            a_and_b = a & b
+            if not a_and_b:
+                return 0.
+            a_or_b = a | b
+            return 1. * len(a_and_b) / len(a_or_b)
+
+        def loader(name):
+            sims = [similarity(name, n) for n in variable_names]
+            found_name = variable_names.pop(np.argmax(sims))
+            print('==> searching: %s, found name: %s' % (name, found_name))
+            return load_variable(found_name)
 
         if self.keep_words is None:
             keep_words = slice(0, None)
         else:
             keep_words = self.keep_words
 
-        if self.embedding_size == self.hidden_size:
-            model.get_layer(name='Embedding-Token').set_weights([
-                loader('bert/embeddings/word_embeddings')[keep_words],
-            ])
-        else:
-            model.get_layer(name='Embedding-Token').set_weights([
-                loader('bert/embeddings/word_embeddings')[keep_words],
-                loader('bert/embeddings/word_embeddings_2'),
-            ])
+        model.get_layer(name='Embedding-Token').set_weights([
+            loader('bert/embeddings/word_embeddings')[keep_words],
+        ])
         model.get_layer(name='Embedding-Position').set_weights([
             loader('bert/embeddings/position_embeddings'),
         ])
@@ -219,18 +235,21 @@ class BertModel(object):
             loader('bert/embeddings/LayerNorm/gamma'),
             loader('bert/embeddings/LayerNorm/beta'),
         ])
+        if self.embedding_size != self.hidden_size:
+            model.get_layer(name='Embedding-Mapping').set_weights([
+                loader('bert/encoder/embedding_hidden_mapping_in/kernel'),
+                loader('bert/encoder/embedding_hidden_mapping_in/bias'),
+            ])
 
         for i in range(self.num_hidden_layers):
             try:
                 model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % (i + 1))
-            except ValueError as e:
+            except ValueError:
                 continue
-            try:
+            if ('bert/encoder/layer_%d/attention/self/query/kernel' % i) in variable_names:
                 layer_name = 'layer_%d' % i
-                loader('bert/encoder/%s/attention/self/query/kernel' % layer_name)
-            except:
-                layer_name = 'layer_shared'
-                loader('bert/encoder/%s/attention/self/query/kernel' % layer_name)
+            else:
+                layer_name = 'transformer/group_0/inner_group_0'
             model.get_layer(name='Encoder-%d-MultiHeadSelfAttention' % (i + 1)).set_weights([
                 loader('bert/encoder/%s/attention/self/query/kernel' % layer_name),
                 loader('bert/encoder/%s/attention/self/query/bias' % layer_name),
@@ -240,10 +259,6 @@ class BertModel(object):
                 loader('bert/encoder/%s/attention/self/value/bias' % layer_name),
                 loader('bert/encoder/%s/attention/output/dense/kernel' % layer_name),
                 loader('bert/encoder/%s/attention/output/dense/bias' % layer_name),
-            ])
-            model.get_layer(name='Encoder-%d-MultiHeadSelfAttention-Norm' % (i + 1)).set_weights([
-                loader('bert/encoder/%s/attention/output/LayerNorm/gamma' % layer_name),
-                loader('bert/encoder/%s/attention/output/LayerNorm/beta' % layer_name),
             ])
             model.get_layer(name='Encoder-%d-MultiHeadSelfAttention-Norm' % (i + 1)).set_weights([
                 loader('bert/encoder/%s/attention/output/LayerNorm/gamma' % layer_name),
@@ -292,7 +307,7 @@ class Bert4Seq2seq(BertModel):
             def seq2seq_attention_mask(s):
                 seq_len = K.shape(s)[1]
                 ones = K.ones((1, self.num_attention_heads, seq_len, seq_len))
-                a_mask = tf.matrix_band_part(ones, -1, 0)
+                a_mask = tf.linalg.band_part(ones, -1, 0)
                 s_ex12 = K.expand_dims(K.expand_dims(s, 1), 2)
                 s_ex13 = K.expand_dims(K.expand_dims(s, 1), 3)
                 a_mask = (1 - s_ex13) * (1 - s_ex12) + s_ex13 * a_mask
@@ -305,20 +320,36 @@ class Bert4Seq2seq(BertModel):
         return self.attention_mask
 
 
-def load_pretrained_model(config_path,
-                          checkpoint_file=None,
-                          with_mlm=False,
-                          seq2seq=False,
-                          keep_words=None,
-                          albert=False):
-    """根据配置文件和checkpoint文件来加载模型
+class Bert4LM(BertModel):
+    """用来做语言模型任务的Bert
+    """
+    def __init__(self, *args, **kwargs):
+        super(Bert4LM, self).__init__(*args, **kwargs)
+        self.with_mlm = True
+        self.attention_mask = 'history_only'
+
+    def compute_attention_mask(self, layer_id, segment_ids):
+        return self.attention_mask
+
+
+def build_bert_model(config_path,
+                     checkpoint_path=None,
+                     with_mlm=False,
+                     application='encoder',
+                     keep_words=None,
+                     albert=False,
+                     return_keras_model=True):
+    """根据配置文件构建bert模型，可选加载checkpoint权重
     """
     config = json.load(open(config_path))
-
-    if seq2seq:
-        Bert = Bert4Seq2seq
-    else:
-        Bert = BertModel
+    mapping = {
+        'encoder': BertModel,
+        'seq2seq': Bert4Seq2seq,
+        'lm': Bert4LM,
+    }
+    
+    assert application in mapping, 'application must be one of %s' % list(mapping.keys())
+    Bert = mapping[application]
 
     bert = Bert(vocab_size=config['vocab_size'],
                 max_position_embeddings=config['max_position_embeddings'],
@@ -328,14 +359,18 @@ def load_pretrained_model(config_path,
                 intermediate_size=config['intermediate_size'],
                 hidden_act=config['hidden_act'],
                 dropout_rate=config['hidden_dropout_prob'],
+                initializer_range=config.get('initializer_range'),
                 embedding_size=config.get('embedding_size'),
                 with_mlm=with_mlm,
                 keep_words=keep_words,
                 block_sharing=albert)
 
     bert.build()
-    
-    if checkpoint_file is not None:
-        bert.load_weights_from_checkpoint(checkpoint_file)
 
-    return bert.model
+    if checkpoint_path is not None:
+        bert.load_weights_from_checkpoint(checkpoint_path)
+
+    if return_keras_model:
+        return bert.model
+    else:
+        return bert

@@ -129,7 +129,7 @@ class myModelCheckpoint(ModelCheckpoint):
                  mode='auto', period=1)
 
     def on_epoch_end(self, epoch, logs=None):
-        super(myModelCheckpoint, self).on_epoch_end(epoch, logs)
+        # super(myModelCheckpoint, self).on_epoch_end(epoch, logs)
         show_result(model)
 
 checkpoint = myModelCheckpoint(model.model_path,
