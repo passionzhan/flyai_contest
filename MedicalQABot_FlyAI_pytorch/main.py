@@ -106,14 +106,6 @@ test_y_data = y_val[-args.BATCH:]
 
 
 def show_result(model, que_data, ans_data):
-    beam_decoder = TransformerBeamSearch(model.QA_model,
-                                         model.tokenizer,
-                                         batch_size=1,
-                                         beam_size=3,
-                                         min_length=5,
-                                         max_length=max_ans_seq_len_predict,
-                                         )
-    beam_decoder.eval()
     score = 0.0
     for i, que in enumerate(que_data):
         predict = model.predict(**que)
@@ -122,7 +114,6 @@ def show_result(model, que_data, ans_data):
         score += sentence_bleu([jieba.lcut(predict)], jieba.lcut(ans_data[i]["ans_text"]), weights=(1., 0., 0., 0))
 
     print("当前bleu得分：%f" % (score / que_data.shape[0]))
-    beam_decoder.train()
 
 def padding(x,pad_token):
     """padding至batch内的最大长度
