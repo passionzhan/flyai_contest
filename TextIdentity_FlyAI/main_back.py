@@ -8,7 +8,7 @@ Created on Mon Oct 30 19:44:02 2017
 import argparse
 import torch
 from flyai.dataset import Dataset
-from model import Model, get_NumofGPU, getDevive
+from model import Model
 from net import Net
 from path import MODEL_PATH
 
@@ -38,9 +38,15 @@ dataset = Dataset(epochs=args.EPOCHS, batch=args.BATCH)
 model = Model(dataset)
 
 '''
-实现自己的网络
+实现自己的网络机构
 '''
-net = model.net.to(getDevive())
+# 判断gpu是否可用
+if torch.cuda.is_available():
+    device = 'cuda'
+else:
+    device = 'cpu'
+device = torch.device(device)
+net = Net().to(device)
 
 '''
 dataset.get_step() 获取数据的总迭代次数

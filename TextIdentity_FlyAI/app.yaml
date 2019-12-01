@@ -7,10 +7,10 @@ author: Honay
 # 项目的描述
 description: 文本鉴别
 # 项目使用的网络
-algorithm: LSTM
+algorithm: BERT
 language: python3
 # 项目使用的框架
-framework: Tensorflow
+framework: PyTorch
 
 # 使用的数据集
 data:
