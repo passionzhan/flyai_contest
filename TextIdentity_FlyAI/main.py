@@ -24,7 +24,7 @@ def padding(x, pad_token):
     """padding至batch内的最大长度
     """
     ml = max([len(i) for i in x])
-    padded_x = [sequence +  [pad_token] * (ml - len(sequence)) for sequence in x]
+    padded_x = [sequence + [pad_token] * (ml - len(sequence)) for sequence in x]
     return padded_x
 
 def gen_batch_data(x,y, batch_size):
@@ -85,10 +85,6 @@ x_train, y_train, x_val, y_val = data_split(dataset,val_ratio=0.1)
 train_len   = x_train.shape[0]
 val_len     = x_val.shape[0]
 
-test_x_data = x_val[-args.BATCH:]
-test_y_data = y_val[-args.BATCH:]
-
-
 steps_per_epoch = math.ceil(train_len / args.BATCH)
 val_steps_per_epoch = math.ceil(val_len / args.BATCH)
 print("real number of train examples:%d" % train_len)
@@ -102,16 +98,13 @@ val_gen     = gen_batch_data(x_val, y_val,args.BATCH)
 if not os.path.exists(mymodel.model_path):
     os.makedirs(mymodel.model_path)
 
-optimizer  = AdamW(TI_net.parameters(),lr=learning_rate)
+optimizer = AdamW(TI_net.parameters(),lr=learning_rate)
 TI_net.zero_grad()
 
 epoch_iterator      = trange(args.EPOCHS, desc="Epoch", disable=True)
 step_iterator       = trange(steps_per_epoch, desc="STEP", disable=True)
-step_iterator_val   = trange(val_steps_per_epoch, desc="VAL_STEP", disable=True)
-global_step = 0
-tr_loss = 0.0
-minloss_val = float('inf')
-best_score = 0
+val_step_iterator   = trange(VAL_STEPS_PER_VAL, desc="STEPS_VAL", disable=True)
+max_acc = 0.
 
 for epoch in epoch_iterator:
     for step in step_iterator:
@@ -125,19 +118,30 @@ for epoch in epoch_iterator:
         loss.backward()
         optimizer.step()
         TI_net.zero_grad()
+        print(str(step + 1) + "/" + str(epoch + 1) + ":" + "train loss is " + str(loss.item()) + '.')
 
-    if (step+1) % VAL_FREQUENCY == 0 or (step+1) == steps_per_epoch:
-        '''
+        if (step+1) % VAL_FREQUENCY == 0 or (step+1) == steps_per_epoch:
+            '''
             准备数据，评估
-        '''
-
-        for val_step in step_iterator_val:
-            x_val, y_val = next(val_gen)
-            TI_net.eval()
-            outputs = TI_net(x_val,labels=y_val)
-            loss, logits = outputs[:2]
             '''
-            实现自己的模型保存逻辑
-            '''
-            mymodel.save_model()
-        print(str(step + 1) + "/" + str(dataset.get_step()))
+            val_loss = 0.0
+            right_num = 0
+            n_smp = 0
+            for val_step in val_step_iterator:
+                x_val, y_val = next(val_gen)
+                n_smp += y_val.size()[0]
+                TI_net.eval()
+                outputs = TI_net(x_val,labels=y_val)
+                val_loss +=outputs[0].item()
+                logits = outputs[1]
+                pred = logits.argmax()
+                right_num +=torch.eq(pred,y_val).sum().item()
+                '''
+                实现自己的模型保存逻辑
+                '''
+            val_loss =val_loss / (val_step + 1)
+            acc = right_num/n_smp
+            print(str(step + 1) + "/" + str(epoch+1) + ":" + "val loss is " + str(val_loss) + ", val acc is "+ str(acc) +'.')
+            if max_acc < acc:
+                max_acc =  acc
+                mymodel.save_model()
