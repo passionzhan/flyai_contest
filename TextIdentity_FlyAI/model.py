@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*
 import numpy
 import os
+
 import torch
 from flyai.model.base import Base
+from transformers import AlbertTokenizer, AlbertForSequenceClassification
 
 from path import *
 
@@ -51,7 +53,7 @@ class Model(Base):
             labels.append(self.predict(**data)[0])
         return labels
 
-    def save_model(self,):
+    def save_model(self):
         super().save_model(None, self.net_path, "albert_pytorch.bin", True)
         self.net.save_pretrained(self.net_path)
         self.tokenizer.save_pretrained(self.net_path)
