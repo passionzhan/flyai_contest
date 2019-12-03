@@ -61,7 +61,8 @@ def create_model():
     return QA_model
 
 class Model(Base):
-    def __init__(self,):
+    def __init__(self,dataset):
+        self.dataset = dataset
         self.model_path = os.path.join(MODEL_PATH,QA_MODEL_DIR)
         if os.path.isdir(self.model_path):
             print('加载训练好的模型：')

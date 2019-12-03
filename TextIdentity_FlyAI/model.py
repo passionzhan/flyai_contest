@@ -4,7 +4,9 @@ import os
 
 import torch
 from flyai.model.base import Base
-from transformers import AlbertTokenizer, AlbertForSequenceClassification
+from transformers import BertTokenizer, AlbertConfig, AlbertForSequenceClassification
+
+from config import max_seq_len
 
 from path import *
 
@@ -32,18 +34,23 @@ class Model(Base):
         self.net_path = os.path.join(MODEL_PATH, TEXTIDENTITY_MODEL_DIR)
         if os.path.exists(self.net_path):
             print('加载训练好的模型：')
-            self.tokenizer = AlbertTokenizer.from_pretrained(self.net_path)
+            self.tokenizer = BertTokenizer.from_pretrained(self.net_path)
             self.net = AlbertForSequenceClassification.from_pretrained(self.net_path)
+            self.net = self.net.to(getDevive())
             print('加载训练好的模型结束')
         else:
-            self.tokenizer = AlbertTokenizer.from_pretrained(ALBERT_PATH)
-            self.net = AlbertForSequenceClassification.from_pretrained(ALBERT_PATH)
+            self.tokenizer = BertTokenizer.from_pretrained(os.path.join(ALBERT_PATH, "vocab.txt"))
+            # self.tokenizer = AutoTokenizer.from_pretrained(ALBERT_PATH)
+            # config = AlbertConfig.from_json_file(os.path.join(ALBERT_PATH, "albert_config_small_google.json"))
+            # config = AlbertConfig(os.path.join(ALBERT_PATH, "albert_config_xlarge.json"))
+            self.net = AlbertForSequenceClassification.from_pretrained(ALBERT_PATH,)
+            self.net = self.net.to(getDevive())
 
     def predict(self, **data):
-        x_data = self.data.predict_data(**data)
-        x_data = torch.from_numpy(x_data)
-        outputs = self.net(x_data)
-        prediction = outputs.data.numpy()
+        x = [self.tokenizer.encode(data["usr_text"],text_pair=data['ans_comment'],max_length = max_seq_len)]
+        x = torch.tensor(x).to(getDevive())
+        outputs = self.net(x)
+        prediction = outputs[0].data.numpy()
         prediction = self.data.to_categorys(prediction)
         return prediction
 

@@ -41,5 +41,5 @@ sentence_sep_token          = '[SEP]'
 
 
 MAX_GRAD_NORM               = 1.0
-VAL_STEPS_PER_VAL           = 1
+VAL_STEPS_PER_VAL           = 2
 VAL_FREQUENCY               = 3

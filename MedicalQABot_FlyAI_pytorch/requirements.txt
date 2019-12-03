@@ -6,5 +6,5 @@ tqdm
 torch
 torchvision
 tensorflow
-https://codeload.github.com/keras-team/keras/zip/master
+keras
 https://codeload.github.com/huggingface/transformers/zip/master

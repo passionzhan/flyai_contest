@@ -18,7 +18,6 @@ QUE_DICT_FILE = os.path.join(DATA_PATH, 'que.dict')
 ANS_DICT_FILE = os.path.join(DATA_PATH, 'ans.dict')
 
 # 必须使用该方法下载模型，然后加载
-# BERT_PATH       = remote_helper.get_remote_date("https://www.flyai.com/m/chinese_L-12_H-768_A-12.zip")
 BERT_PATH         = remote_helper.get_remote_date('https://www.flyai.com/m/chinese_wwm_ext_pytorch.zip')
 print('after get_remote_date BERT_PATH:{}'.format(BERT_PATH))
 BERT_PATH_TMP     = os.path.dirname(BERT_PATH)

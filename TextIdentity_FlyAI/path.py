@@ -16,7 +16,6 @@ LOG_PATH = os.path.join(sys.path[0], 'data', 'output', 'logs')
 # 必须使用该方法下载模型，然后加载
 
 
-ALBERT_PATH         = r"D:\jack_doc\python_src\flyai\data\bert_chinese_wwm_ext_pytorch"
 # ALBERT_PATH         = remote_helper.get_remote_date('https://www.flyai.com/m/chinese_wwm_ext_pytorch.zip')
 # print('after get_remote_date ALBERT_PATH:{}'.format(ALBERT_PATH))
 # ALBERT_PATH_TMP     = os.path.dirname(ALBERT_PATH)
@@ -38,5 +37,7 @@ ALBERT_PATH         = r"D:\jack_doc\python_src\flyai\data\bert_chinese_wwm_ext_p
 #
 # # 重命名
 # os.rename(os.path.join(ALBERT_PATH, "bert_config.json"), os.path.join(ALBERT_PATH, "config.json"))
-#
-# TEXTIDENTITY_MODEL_DIR    = "textidentity_albert"
+
+
+ALBERT_PATH         = r"D:\jack_doc\python_src\flyai\data\albert_small_zh_google_pytorch"
+TEXTIDENTITY_MODEL_DIR    = "textidentity_albert"

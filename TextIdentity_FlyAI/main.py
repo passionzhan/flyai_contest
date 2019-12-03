@@ -13,10 +13,9 @@ from numpy import random
 from tqdm import trange
 import torch
 from flyai.dataset import Dataset
-from model import Model, get_NumofGPU, getDevive
-from path import MODEL_PATH
+from model import Model, getDevive
 from transformers.optimization import AdamW
-from transformers import AlbertTokenizer
+from transformers import BertTokenizer
 from config import *
 from utilities import data_split
 
@@ -40,7 +39,7 @@ def gen_batch_data(x,y, batch_size):
     x = x[indices]
     y = y[indices]
     i = 0
-    tokenizer = AlbertTokenizer(ALBERT_PATH)
+    tokenizer = BertTokenizer(os.path.join(ALBERT_PATH, "vocab.txt"))
 
     while True:
         bi = i*batch_size
@@ -50,22 +49,23 @@ def gen_batch_data(x,y, batch_size):
         else:
             i += 1
 
-        x_train = [tokenizer.encode(text["usr_text"][0:max_que_seq_len-2],text_pair=text['ans_comment'],max_length = max_seq_len) for text in x[bi:ei]]
+        x_train = [tokenizer.encode(text["usr_text"],text_pair=text['ans_comment'],max_length = max_seq_len) for text in x[bi:ei]]
         y_train = [label['label'] for label in y[bi:ei]]
 
         x_train = padding(x_train,tokenizer.pad_token_id)
 
-        x_train = torch.tensor(x_train,dtype=torch.long)
-        y_train = torch.tensor(y_train,dtype=torch.long)
-
+        x_train = torch.tensor(x_train,dtype=torch.long).to(getDevive())
+        y_train = torch.tensor(y_train,dtype=torch.long).to(getDevive())
+        # x_train = tf.constant(x_train, dtype=torch.long)
+        # y_train = tf.constant(y_train, dtype=torch.long)
         yield x_train,y_train
 
 '''
 项目的超参
 '''
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--EPOCHS", default=10, type=int, help="train epochs")
-parser.add_argument("-b", "--BATCH", default=32, type=int, help="batch size")
+parser.add_argument("-e", "--EPOCHS", default=20, type=int, help="train epochs")
+parser.add_argument("-b", "--BATCH", default=3, type=int, help="batch size")
 args = parser.parse_args()
 
 '''
@@ -95,8 +95,8 @@ print("val_steps_per_epoch:%d" % val_steps_per_epoch)
 train_gen   = gen_batch_data(x_train,y_train,args.BATCH)
 val_gen     = gen_batch_data(x_val, y_val,args.BATCH)
 
-if not os.path.exists(mymodel.model_path):
-    os.makedirs(mymodel.model_path)
+if not os.path.exists(mymodel.net_path):
+    os.makedirs(mymodel.net_path)
 
 optimizer = AdamW(TI_net.parameters(),lr=learning_rate)
 TI_net.zero_grad()
@@ -134,7 +134,7 @@ for epoch in epoch_iterator:
                 outputs = TI_net(x_val,labels=y_val)
                 val_loss +=outputs[0].item()
                 logits = outputs[1]
-                pred = logits.argmax()
+                pred = logits.argmax(dim=-1)
                 right_num +=torch.eq(pred,y_val).sum().item()
                 '''
                 实现自己的模型保存逻辑
@@ -143,5 +143,5 @@ for epoch in epoch_iterator:
             acc = right_num/n_smp
             print(str(step + 1) + "/" + str(epoch+1) + ":" + "val loss is " + str(val_loss) + ", val acc is "+ str(acc) +'.')
             if max_acc < acc:
-                max_acc =  acc
+                max_acc = acc
                 mymodel.save_model()

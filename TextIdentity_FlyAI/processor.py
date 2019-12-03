@@ -85,4 +85,4 @@ class Processor(Base):
     '''
     def output_y(self, data):
         # 返回分类结果0/1
-        return numpy.argmax(data)
+        return numpy.argmax(data,axis=-1)
