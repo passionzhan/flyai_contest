@@ -15,4 +15,4 @@ model = Model(data)
 pdData = pd.read_csv(r'D:\jack_doc\python_src\flyai\TextIdentity_FlyAI\data\input\dev.csv')
 for i, data in pdData.iterrows():
     p = model.predict(**data)
-    print(p)
+    print(p[0])

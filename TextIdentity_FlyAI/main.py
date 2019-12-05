@@ -147,15 +147,15 @@ for epoch in epoch_iterator:
                 实现自己的模型保存逻辑
                 '''
             val_loss =val_loss / (val_step + 1)
-            acc = right_num/n_smp
+            val_acc = right_num / n_smp
             print("step " + str(step + 1) + "/" + str(steps_per_epoch) + ", " +
                   "epoch " + str(epoch + 1) + "/" + str(args.EPOCHS) + ", "
-                  + "val loss is " + str(val_loss) + ", val acc is "+ str(acc))
+                  + "val loss is " + str(val_loss) + ", val acc is " + str(val_acc))
             # 调用系统打印日志函数，这样在线上可看到训练和校验准确率和损失的实时变化曲线
-            train_log(train_loss=train_loss, train_acc=0.5, val_loss=val_loss, val_acc=acc)
-            if max_acc < acc:
-                print("acc improved from {0} to {1}, model saved.".format(max_acc, acc))
-                max_acc = acc
+            train_log(train_loss=train_loss, train_acc=0.5, val_loss=val_loss, val_acc=val_acc)
+            if max_acc < val_acc:
+                print("acc improved from {0} to {1}, model saved.".format(max_acc, val_acc))
+                max_acc = val_acc
                 mymodel.save_model()
 
 
