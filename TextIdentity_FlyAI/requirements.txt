@@ -3,3 +3,4 @@ numpy
 Pillow
 torch
 torchvision
+https://codeload.github.com/huggingface/transformers/zip/master

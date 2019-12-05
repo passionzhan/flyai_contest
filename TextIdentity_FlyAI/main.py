@@ -16,6 +16,10 @@ from flyai.dataset import Dataset
 from model import Model, getDevive
 from transformers.optimization import AdamW
 from transformers import BertTokenizer
+
+# 导入flyai打印日志函数的库
+from flyai.utils.log_helper import train_log
+
 from config import *
 from utilities import data_split
 
@@ -98,7 +102,7 @@ val_gen     = gen_batch_data(x_val, y_val,args.BATCH)
 if not os.path.exists(mymodel.net_path):
     os.makedirs(mymodel.net_path)
 
-optimizer = AdamW(TI_net.parameters(),lr=learning_rate)
+optimizer = AdamW(TI_net.parameters(),lr=learning_rate,weight_decay=0.01)
 TI_net.zero_grad()
 
 epoch_iterator      = trange(args.EPOCHS, desc="Epoch", disable=True)
@@ -115,10 +119,13 @@ for epoch in epoch_iterator:
         TI_net.train()
         outputs = TI_net(x_train, labels=y_train)
         loss, logits = outputs[:2]
+        TI_net.zero_grad()
         loss.backward()
         optimizer.step()
-        TI_net.zero_grad()
-        print(str(step + 1) + "/" + str(epoch + 1) + ":" + "train loss is " + str(loss.item()) + '.')
+        train_loss = loss.item()
+        print("step " + str(step + 1) + "/" + str(steps_per_epoch) + ", " +
+                "epoch " + str(epoch + 1) + "/" + str(args.EPOCHS) + ", " +
+                "train loss: " + str(train_loss))
 
         if (step+1) % VAL_FREQUENCY == 0 or (step+1) == steps_per_epoch:
             '''
@@ -141,7 +148,15 @@ for epoch in epoch_iterator:
                 '''
             val_loss =val_loss / (val_step + 1)
             acc = right_num/n_smp
-            print(str(step + 1) + "/" + str(epoch+1) + ":" + "val loss is " + str(val_loss) + ", val acc is "+ str(acc) +'.')
+            print("step " + str(step + 1) + "/" + str(steps_per_epoch) + ", " +
+                  "epoch " + str(epoch + 1) + "/" + str(args.EPOCHS) + ", "
+                  + "val loss is " + str(val_loss) + ", val acc is "+ str(acc))
+            # 调用系统打印日志函数，这样在线上可看到训练和校验准确率和损失的实时变化曲线
+            train_log(train_loss=train_loss, train_acc=0.5, val_loss=val_loss, val_acc=acc)
             if max_acc < acc:
+                print("acc improved from {0} to {1}, model saved.".format(max_acc, acc))
                 max_acc = acc
                 mymodel.save_model()
+
+
+

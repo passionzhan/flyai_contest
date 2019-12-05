@@ -40,9 +40,6 @@ class Model(Base):
             print('加载训练好的模型结束')
         else:
             self.tokenizer = BertTokenizer.from_pretrained(os.path.join(ALBERT_PATH, "vocab.txt"))
-            # self.tokenizer = AutoTokenizer.from_pretrained(ALBERT_PATH)
-            # config = AlbertConfig.from_json_file(os.path.join(ALBERT_PATH, "albert_config_small_google.json"))
-            # config = AlbertConfig(os.path.join(ALBERT_PATH, "albert_config_xlarge.json"))
             self.net = AlbertForSequenceClassification.from_pretrained(ALBERT_PATH,)
             self.net = self.net.to(getDevive())
 
@@ -50,7 +47,7 @@ class Model(Base):
         x = [self.tokenizer.encode(data["usr_text"],text_pair=data['ans_comment'],max_length = max_seq_len)]
         x = torch.tensor(x).to(getDevive())
         outputs = self.net(x)
-        prediction = outputs[0].data.numpy()
+        prediction = outputs[0].data.cpu().numpy()
         prediction = self.data.to_categorys(prediction)
         return prediction
 
