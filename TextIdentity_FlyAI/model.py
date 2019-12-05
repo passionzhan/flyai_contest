@@ -10,9 +10,6 @@ from config import max_seq_len
 
 from path import *
 
-__import__('net', fromlist=["Net"])
-
-TORCH_MODEL_NAME = "model.pkl"
 
 def getDevive():# Set up training device
     if torch.cuda.is_available():

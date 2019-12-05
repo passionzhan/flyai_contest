@@ -9,7 +9,6 @@ import argparse
 import torch
 from flyai.dataset import Dataset
 from model import Model
-from net import Net
 from path import MODEL_PATH
 
 '''
