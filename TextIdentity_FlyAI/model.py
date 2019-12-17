@@ -4,7 +4,7 @@ import os
 
 import torch
 from flyai.model.base import Base
-from transformers import BertTokenizer, AlbertConfig, AlbertForSequenceClassification
+from transformers import BertTokenizer, BertConfig, BertForSequenceClassification
 
 from config import max_seq_len
 
@@ -32,12 +32,12 @@ class Model(Base):
         if os.path.exists(self.net_path):
             print('加载训练好的模型：')
             self.tokenizer = BertTokenizer.from_pretrained(self.net_path)
-            self.net = AlbertForSequenceClassification.from_pretrained(self.net_path)
+            self.net = BertForSequenceClassification.from_pretrained(self.net_path)
             self.net = self.net.to(getDevive())
             print('加载训练好的模型结束')
         else:
-            self.tokenizer = BertTokenizer.from_pretrained(os.path.join(ALBERT_PATH, "vocab.txt"))
-            self.net = AlbertForSequenceClassification.from_pretrained(ALBERT_PATH,)
+            self.tokenizer = BertTokenizer.from_pretrained(os.path.join(BERT_PATH, "vocab.txt"))
+            self.net = BertForSequenceClassification.from_pretrained(BERT_PATH, )
             self.net = self.net.to(getDevive())
 
     def predict(self, **data):

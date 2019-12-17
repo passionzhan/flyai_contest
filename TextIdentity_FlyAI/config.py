@@ -16,7 +16,7 @@ from path import *
 
 max_seq_len                 = 512
 
-learning_rate               = 1e-5
+learning_rate               = 1e-3
 MAX_GRAD_NORM               = 1.0
-VAL_STEPS_PER_VAL           = 20
+VAL_STEPS_PER_VAL           = 30
 VAL_FREQUENCY               = 100

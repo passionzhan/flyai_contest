@@ -43,7 +43,7 @@ def gen_batch_data(x,y, batch_size):
     x = x[indices]
     y = y[indices]
     i = 0
-    tokenizer = BertTokenizer(os.path.join(ALBERT_PATH, "vocab.txt"))
+    tokenizer = BertTokenizer(os.path.join(BERT_PATH, "vocab.txt"))
 
     while True:
         bi = i*batch_size
